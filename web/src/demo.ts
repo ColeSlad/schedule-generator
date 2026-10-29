@@ -1,3 +1,62 @@
-import type {Profile,Attempt} from './types';
+import type { Profile, Attempt } from "./types";
 // Synthetic student record. No student identifiers or personal audit excerpts.
-export const demo:Profile={program:'07010',catalog_year:'Fall 2025',credits_completed:82,credits_in_progress:6,gpa:3.2,resident_credits:30,upper_credits:3,major_upper_credits:0,gened_remaining:{FSAW:0,FSPW:1,FSOC:0,FSMA:0,FSAR:0,DSHU:1,DSHS:0,DSNL:0,DSNS:0,DSSP:1,SCIS:0,DVUP:0,DVCC:0},attempts:['CMSC131','CMSC132','CMSC216','CMSC250','MATH140','MATH141','MATH240','STAT400'].map<Attempt>(course=>({course,credits:course==='STAT400'?3:4,grade:'B',term:'202601',status:'completed' as const,transfer:false,requirements:[]})).concat(['CMSC330','CMSC351'].map(course=>({course,credits:3,grade:'IP',term:'202608',status:'in_progress' as const,transfer:false,requirements:[]}))),issues:['Synthetic example: summary credits include prior general education and elective coursework not itemized here. Use a real audit for your plan.'],reviewed:false,overrides:[]};
+export const demo: Profile = {
+  program: "07010",
+  catalog_year: "Fall 2025",
+  credits_completed: 82,
+  credits_in_progress: 6,
+  gpa: 3.2,
+  resident_credits: 30,
+  upper_credits: 3,
+  major_upper_credits: 0,
+  gened_remaining: {
+    FSAW: 0,
+    FSPW: 1,
+    FSOC: 0,
+    FSMA: 0,
+    FSAR: 0,
+    DSHU: 1,
+    DSHS: 0,
+    DSNL: 0,
+    DSNS: 0,
+    DSSP: 1,
+    SCIS: 0,
+    DVUP: 0,
+    DVCC: 0,
+  },
+  attempts: [
+    "CMSC131",
+    "CMSC132",
+    "CMSC216",
+    "CMSC250",
+    "MATH140",
+    "MATH141",
+    "MATH240",
+    "STAT400",
+  ]
+    .map<Attempt>((course) => ({
+      course,
+      credits: course === "STAT400" ? 3 : 4,
+      grade: "B",
+      term: "202601",
+      status: "completed" as const,
+      transfer: false,
+      requirements: [],
+    }))
+    .concat(
+      ["CMSC330", "CMSC351"].map((course) => ({
+        course,
+        credits: 3,
+        grade: "IP",
+        term: "202608",
+        status: "in_progress" as const,
+        transfer: false,
+        requirements: [],
+      })),
+    ),
+  issues: [
+    "Synthetic example: summary credits include prior general education and elective coursework not itemized here. Use a real audit for your plan.",
+  ],
+  reviewed: false,
+  overrides: [],
+};
