@@ -24,7 +24,6 @@ pydantic_core==2.50.1
 Pygments==2.21.0
 pytest==9.2.0
 python-dateutil==3.0.0
-ruff==0.17.3
 six==1.17.0
 soupsieve==3.0.4
 starlette==1.10.0
