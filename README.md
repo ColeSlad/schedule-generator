@@ -10,12 +10,12 @@ Use Node 22+ and Python 3.13.
 npm ci
 python3.13 -m venv .venv
 .venv/bin/pip install -r server/requirements.txt
-.venv/bin/uvicorn server.app.main:app --reload
+.venv/bin/uvicorn server.app.main:app --reload --port 8011
 # In another terminal:
 npm run dev
 ```
 
-The UI runs at http://localhost:5173; the API and interactive schema at http://127.0.0.1:8000/docs.
+The UI runs at http://localhost:5173; the API and interactive schema at http://127.0.0.1:8011/docs.
 
 ```sh
 npm test
