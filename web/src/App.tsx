@@ -219,9 +219,6 @@ export default function App() {
   const remainingGeneds = profile
     ? Object.values(profile.gened_remaining).reduce((a, b) => a + b, 0)
     : 0;
-  const remaining = profile
-    ? Object.entries(profile.gened_remaining).filter(([, n]) => n > 0)
-    : [];
   const setCoursePin = (id: string, term: string) => {
     const pinned = { ...prefs.pinned };
     if (term) pinned[id] = term;
@@ -275,10 +272,8 @@ export default function App() {
           </span>
           <span>
             terp<span className="brand-light">path</span>
-            <small>YOUR NEXT CHAPTER</small>
           </span>
         </a>
-        <div className="workspace-label">STUDENT WORKSPACE</div>
         <nav aria-label="Main navigation">
           {(
             [
@@ -299,65 +294,21 @@ export default function App() {
             </button>
           ))}
         </nav>
-        <div className="sidebar-note">
-          <ShieldCheck size={20} />
-          <strong>Your audit stays yours.</strong>
-          <p>
-            PDFs are read on your device. Your reviewed coursework goes to the
-            planning solver.
-          </p>
-          <span>No accounts. No AI.</span>
-        </div>
-        <div className="sidebar-bottom">
-          <span className="umd-mark">M</span>
-          <span>
-            Made for Maryland<small>Independent student planning tool</small>
-          </span>
-        </div>
       </aside>
       <main>
-        <header className="topbar">
-          <div>
-            <span className="breadcrumb">WORKSPACE</span>
-            <span className="separator">/</span>
-            {
-              {
-                overview: "Overview",
-                audit: "Degree audit",
-                plan: "Graduation plan",
-                schedule: "Weekly schedule",
-              }[tab]
-            }
-          </div>
-          <div className="local-status">
-            <span />
-            Saved on this device
-          </div>
-        </header>
         <div className="content">
           <div className="page-heading">
             <div>
-              <div className="eyebrow">
-                UNIVERSITY OF MARYLAND · COLLEGE PARK
-              </div>
               <h1>
-                {tab === "overview"
-                  ? "A clearer path to graduation."
-                  : tab === "audit"
-                    ? "Start with what you’ve earned."
-                    : tab === "plan"
-                      ? "Make every semester count."
-                      : "Find your weekly rhythm."}
+                {
+                  {
+                    overview: "Overview",
+                    audit: "Degree audit",
+                    plan: "Graduation plan",
+                    schedule: "Weekly schedule",
+                  }[tab]
+                }
               </h1>
-              <p>
-                {tab === "overview"
-                  ? "Your requirements, your schedule, your next step. All in one place."
-                  : tab === "audit"
-                    ? "Review your coursework so your plan starts on solid ground."
-                    : tab === "plan"
-                      ? "Build a course-by-course path around your goals."
-                      : "Compare published sections and choose a schedule that fits."}
-              </p>
             </div>
             <button
               className="button secondary"
@@ -392,29 +343,21 @@ export default function App() {
             <>
               <section className="hero">
                 <div className="hero-copy">
-                  <span className="pill">A PLAN THAT MOVES WITH YOU</span>
                   <h2>
                     Your degree.
                     <br />
                     Your direction.
                   </h2>
-                  <p>
-                    Turn your degree audit into a plan you can actually see.
-                    Explore your options, then make your next move.
-                  </p>
+                  <p>Plan your courses through graduation.</p>
                   <button
                     className="button light"
                     onClick={() =>
                       profile ? setTab("plan") : pdfInput.current?.click()
                     }
                   >
-                    {profile ? "Build my plan" : "Get started with your audit"}
+                    {profile ? "Build my plan" : "Upload audit"}
                     <ArrowRight size={17} />
                   </button>
-                  <div className="hero-foot">
-                    <Check size={14} />
-                    Free to explore <span>·</span> No sign-up needed
-                  </div>
                 </div>
                 <div className="hero-graphic" aria-hidden="true">
                   <div className="orbit orbit-one" />
@@ -424,66 +367,51 @@ export default function App() {
                     <span>
                       <Check size={17} />
                     </span>
-                    <div>
-                      THE FOUNDATION<small>Credits you’ve earned</small>
-                    </div>
+                    <div>Completed courses</div>
                   </div>
                   <div className="milestone milestone-two">
                     <span>
                       <BookOpen size={18} />
                     </span>
-                    <div>
-                      THE NEXT STEP<small>A semester that fits</small>
-                    </div>
+                    <div>Next semester</div>
                   </div>
                   <div className="milestone milestone-three">
                     <span>
                       <GraduationCap size={20} />
                     </span>
-                    <div>
-                      THE DESTINATION<small>Your graduation goal</small>
-                    </div>
+                    <div>Graduation</div>
                     <ArrowUpRight size={20} />
                   </div>
-                  <span className="graphic-caption">
-                    GOOD PLANS START HERE.
-                  </span>
                 </div>
               </section>
               <div className="stats">
                 <Stat
-                  label="COMPLETED CREDITS"
+                  label="Completed credits"
                   value={profile ? String(profile.credits_completed) : "—"}
-                  note="Toward your degree"
                   icon={<BookOpen size={19} />}
                 />
                 <Stat
-                  label="IN PROGRESS"
+                  label="In progress"
                   value={profile ? String(profile.credits_in_progress) : "—"}
-                  note="Counted conditionally"
                   icon={<RefreshCw size={19} />}
                 />
                 <Stat
-                  label="GEN EDS REMAINING"
+                  label="Gen Eds remaining"
                   value={profile ? String(remainingGeneds) : "—"}
-                  note="From your reviewed audit"
                   icon={<LayoutGrid size={19} />}
                 />
                 <Stat
-                  label="GRADUATION TARGET"
+                  label="Graduation target"
                   value={
-                    prefs.target_term
-                      ? termLabel(prefs.target_term)
-                      : "Your choice"
+                    prefs.target_term ? termLabel(prefs.target_term) : "Not set"
                   }
-                  note="Explore what’s possible"
                   icon={<Flag size={19} />}
                 />
               </div>
-              <div className="two-columns">
+              <div className="degree-summary">
                 <section className="card">
                   <div className="card-heading">
-                    <h3>Your degree at a glance</h3>
+                    <h3>Degree progress</h3>
                     <span className="tag">CS GENERAL TRACK</span>
                   </div>
                   <div className="degree-line">
@@ -492,7 +420,7 @@ export default function App() {
                     </span>
                     <div>
                       <h3>Computer Science, B.S.</h3>
-                      <p>Fall 2025 catalog · Undergraduate pilot</p>
+                      <p>Fall 2025 catalog</p>
                     </div>
                   </div>
                   <div className="progress-label">
@@ -510,10 +438,7 @@ export default function App() {
                       }}
                     />
                   </div>
-                  <p className="muted small">
-                    Completed + in-progress credits. All degree requirements
-                    must also be satisfied.
-                  </p>
+                  <p className="muted small">Includes in-progress credits.</p>
                   <button
                     className="text-button"
                     onClick={() => setTab("audit")}
@@ -521,72 +446,6 @@ export default function App() {
                     Review degree requirements <ArrowRight size={15} />
                   </button>
                 </section>
-                <section className="card next-card">
-                  <div className="eyebrow">ONE STEP AT A TIME</div>
-                  <h3>
-                    {profile
-                      ? profile.reviewed
-                        ? "Ready for your next semester?"
-                        : "Give your audit a quick check."
-                      : "Bring your progress with you."}
-                  </h3>
-                  <p>
-                    {profile
-                      ? "Confirm the details, set your preferences, and explore a plan built around your goals."
-                      : "Export your expanded uAchieve audit as a PDF. We’ll organize the details so you can focus on what’s next."}
-                  </p>
-                  <button
-                    className="button secondary"
-                    onClick={() =>
-                      profile
-                        ? setTab(profile.reviewed ? "plan" : "audit")
-                        : pdfInput.current?.click()
-                    }
-                  >
-                    {profile ? "Continue planning" : "Upload degree audit"}
-                    <ArrowRight size={16} />
-                  </button>
-                  {!profile && (
-                    <button
-                      className="text-button muted"
-                      onClick={() => {
-                        setProfile(structuredClone(demo));
-                        setTab("audit");
-                      }}
-                    >
-                      Or explore a synthetic example
-                    </button>
-                  )}
-                </section>
-              </div>
-              <div className="section-heading">
-                <h3>A little structure. A lot of possibility.</h3>
-                <span>HOW IT WORKS</span>
-              </div>
-              <div className="steps">
-                {[
-                  [
-                    "01",
-                    "Bring your audit",
-                    "Start with your completed courses and what’s left.",
-                  ],
-                  [
-                    "02",
-                    "Find your path",
-                    "Balance requirements with your graduation goal.",
-                  ],
-                  [
-                    "03",
-                    "Make it fit",
-                    "Compare actual sections for the next semester.",
-                  ],
-                ].map(([n, t, d]) => (
-                  <div key={n}>
-                    <span>{n}</span>
-                    <h4>{t}</h4>
-                    <p>{d}</p>
-                  </div>
-                ))}
               </div>
             </>
           )}
@@ -594,12 +453,8 @@ export default function App() {
             (!profile ? (
               <section className="card empty">
                 <FileText size={36} />
-                <h2>Your progress starts here.</h2>
-                <p>
-                  Upload an expanded, printer-friendly uAchieve PDF.
-                  <br />
-                  Names and student IDs are never stored in your profile.
-                </p>
+                <h2>Upload your degree audit</h2>
+                <p>Use an expanded, printer-friendly uAchieve PDF.</p>
                 <button
                   className="button primary"
                   onClick={() => pdfInput.current?.click()}
@@ -1027,7 +882,7 @@ export default function App() {
                 <div className="plan-main">
                   <section className="card">
                     <div className="card-heading">
-                      <h3>Make room for what matters</h3>
+                      <h3>Course choices</h3>
                       <button
                         className="text-button"
                         onClick={() => {
@@ -1038,9 +893,6 @@ export default function App() {
                         Browse courses <ArrowUpRight size={15} />
                       </button>
                     </div>
-                    <p className="muted">
-                      Pin courses to a semester or exclude them from your plan.
-                    </p>
                     {Object.entries(prefs.pinned).map(([c, t]) => (
                       <div className="pin-row" key={c}>
                         <strong>{c}</strong>
@@ -1071,32 +923,17 @@ export default function App() {
                         ))}
                       </div>
                     )}
-                    {!Object.keys(prefs.pinned).length &&
-                      !prefs.excluded.length && (
-                        <div className="soft-empty">
-                          <BookOpen size={20} />
-                          Keep your options open, or choose a few must-takes.
-                        </div>
-                      )}
                   </section>
                   {!result ? (
                     <section className="card empty">
                       <Flag size={32} />
-                      <h3>A path built around your goals.</h3>
-                      <p>
-                        Confirm your audit, choose your preferences,
-                        <br />
-                        and generate your first graduation plan.
-                      </p>
-                      <span className="tag">
-                        UP TO 12 FUTURE FALL / SPRING TERMS
-                      </span>
+                      <h3>No plan yet</h3>
+                      <p>Review your audit and choose your planning goals.</p>
                     </section>
                   ) : (
                     <>
                       <div className="result-heading">
                         <div>
-                          <span className="eyebrow">PLANNING RESULT</span>
                           <h3>
                             {result.plans.length
                               ? `${result.plans.length} paths to explore`
@@ -1320,12 +1157,8 @@ export default function App() {
               {!schedules.length ? (
                 <section className="card empty">
                   <CalendarDays size={34} />
-                  <h3>Your week is taking shape.</h3>
-                  <p>
-                    Generate a graduation plan with courses in a published term
-                    <br />
-                    to see compatible section schedules here.
-                  </p>
+                  <h3>No weekly schedule yet</h3>
+                  <p>Generate a graduation plan to see section schedules.</p>
                   <button
                     className="button secondary"
                     onClick={() => setTab("plan")}
@@ -1461,7 +1294,6 @@ export default function App() {
             </>
           )}
           <footer>
-            <span>Plan with confidence. Confirm with your advisor.</span>
             <div>
               <button onClick={() => jsonInput.current?.click()}>
                 Import backup
@@ -1505,7 +1337,7 @@ export default function App() {
                 <div className="eyebrow">
                   PUBLISHED OFFERINGS · {termLabel(prefs.start_term)}
                 </div>
-                <h2>Find your next course.</h2>
+                <h2>Courses</h2>
               </div>
               <button
                 aria-label="Close course browser"
@@ -1619,12 +1451,10 @@ export default function App() {
 function Stat({
   label,
   value,
-  note,
   icon,
 }: {
   label: string;
   value: string;
-  note: string;
   icon: React.ReactNode;
 }) {
   return (
@@ -1634,7 +1464,6 @@ function Stat({
         {icon}
       </div>
       <strong>{value}</strong>
-      <span>{note}</span>
     </section>
   );
 }
