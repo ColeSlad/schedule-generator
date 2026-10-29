@@ -1162,6 +1162,7 @@ export default function App() {
                                     <strong>{c}</strong>
                                     <span>
                                       {courses.find((v) => v.id === c)?.title ??
+                                        result?.course_titles?.[c] ??
                                         "See Testudo for course details"}
                                     </span>
                                   </div>

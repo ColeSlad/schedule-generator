@@ -74,6 +74,8 @@ def parse_courses(html, term, url, stamp):
         )
         if not text:
             text = node.get_text(" ", strip=True)
+        text = re.sub(r"\s+([,;.)])", r"\1", text)
+        text = re.sub(r"([(])\s+", r"\1", text)
         prereq = re.search(
             r"Prerequisite:\s*(.*?)(?=Restriction:|Corequisite:|Credit only|Cross-listed|$)",
             text,
@@ -275,7 +277,12 @@ def enrich_catalog(courses, prefixes):
                 course.terms = [t for t in course.terms if t]
                 if course.id in result:
                     current = result[course.id]
-                    current.prerequisites = course.prerequisites or current.prerequisites
+                    current.prerequisites = [
+                        list(g)
+                        for g in sorted(
+                            {tuple(g) for g in current.prerequisites + course.prerequisites}
+                        )
+                    ]
                     current.crosslisted = sorted(set(current.crosslisted + course.crosslisted))
                     current.restrictions = sorted(set(current.restrictions + course.restrictions))
                 else:

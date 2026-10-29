@@ -64,6 +64,7 @@ const resultSchema = z.object({
   messages: z.array(z.string()),
   sources: z.array(z.string()),
   horizon: z.array(term),
+  course_titles: z.record(z.string(), z.string()).optional(),
 });
 const saved = z.object({
   version: z.literal(1),

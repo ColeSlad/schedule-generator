@@ -81,6 +81,7 @@ export interface PlanResult {
   messages: string[];
   sources: string[];
   horizon: string[];
+  course_titles?: Record<string, string>;
 }
 export const defaultPreferences: Preferences = {
   start_term: "202701",

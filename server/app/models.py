@@ -139,6 +139,7 @@ class PlanResult(BaseModel):
     messages: list[str] = Field(default_factory=list)
     sources: list[str] = Field(default_factory=list)
     horizon: list[str] = Field(default_factory=list)
+    course_titles: dict[str, str] = Field(default_factory=dict)
 
 
 class ValidateRequest(PlanRequest):

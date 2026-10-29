@@ -93,15 +93,11 @@ def build_model(profile, p, courses, terms, forbidden=None, fixed=None):
             f"Minimum {p.min_credits} credits in active term {t}",
         )
     all_ids = set(available) | done
-    used = {c: chosen[c] if c in chosen else 1 for c in all_ids}
+    used = {c: chosen.get(c, 1) for c in all_ids}
     for c in RULES["required"]:
         rule(m.add(used.get(c, 0) == 1), f"Required course {c} is missing")
     # Pilot equivalencies for math requirements; unknown alternatives need reviewed override.
     stat = [c for c in all_ids if c.startswith("STAT4") and c not in ["STAT426"]]
-    rule(
-        m.add(sum(used[c] for c in stat) >= 1),
-        "One qualifying STAT4xx course is required",
-    )
     math = [
         c
         for c in all_ids
@@ -117,10 +113,15 @@ def build_model(profile, p, courses, terms, forbidden=None, fixed=None):
             "MATH461",
         ]
     ]
-    rule(
-        m.add(sum(used[c] for c in math) >= 1),
-        "One qualifying additional math course is required",
-    )
+    major_math = {}
+    for label, candidates in [("statistics", stat), ("additional math", math)]:
+        choices = []
+        for c in candidates:
+            v = m.new_bool_var(f"major-math:{label}:{c}")
+            m.add(v <= used[c])
+            major_math[c] = v
+            choices.append(v)
+        rule(m.add(sum(choices) == 1), f"One qualifying {label} course is required")
     allocations = {}
     areas = {}
     for area, ids in RULES["areas"].items():
@@ -158,7 +159,7 @@ def build_model(profile, p, courses, terms, forbidden=None, fixed=None):
         m.add(sum(int(credits(c)) * e for c, e in electives) >= 6),
         "Six CS elective credits must be separate from the five area courses",
     )
-    ulc = []
+    ulc = {}
     for c in all_ids:
         if not c.startswith(p.concentration) or not c[len(p.concentration) :].isdigit():
             continue
@@ -181,9 +182,13 @@ def build_model(profile, p, courses, terms, forbidden=None, fixed=None):
             continue
         if c in existing and existing[c].transfer:
             continue  # transfer ULC requires advisor review
-        ulc.append(c)
+        v = m.new_bool_var("ulc:" + c)
+        m.add(v <= used[c])
+        if c in major_math:
+            m.add(v + major_math[c] <= 1)
+        ulc[c] = v
     rule(
-        m.add(sum(int(credits(c)) * used[c] for c in ulc) >= 12),
+        m.add(sum(int(credits(c)) * v for c, v in ulc.items()) >= 12),
         f"12 eligible upper-level {p.concentration} concentration credits are required",
     )
     gened_alloc = {}
@@ -319,6 +324,13 @@ def generate(profile, p, courses, forbidden=None, fixed=None, limit=3):
                 "Cumulative GPA is below 2.0. Graduation requires GPA recovery; future grades are not predicted."
             ],
         )
+    if any(a.status == "in_progress" and a.term >= p.start_term for a in profile.attempts):
+        return PlanResult(
+            status="needs_review",
+            messages=[
+                "Choose a start term after all imported in-progress courses, or update their status."
+            ],
+        )
     if not terms:
         return PlanResult(
             status="needs_review",
@@ -329,6 +341,23 @@ def generate(profile, p, courses, forbidden=None, fixed=None, limit=3):
             status="needs_review",
             messages=["Course data is unavailable. Refresh offerings before planning."],
         )
+    # Bound the search to the earliest feasible horizon before optimizing preferences.
+    # If a shorter-horizon search times out, do not claim that a later term is earliest.
+    shorter_unknown = False
+    if not p.target_term and fixed is None:
+        for n in range(1, len(terms) + 1):
+            trial, *_ = build_model(profile, p, courses, terms[:n], forbidden)
+            probe = cp_model.CpSolver()
+            probe.parameters.max_time_in_seconds = 2
+            probe.parameters.num_search_workers = 4
+            trial_status = probe.solve(trial)
+            if trial_status in (cp_model.OPTIMAL, cp_model.FEASIBLE):
+                terms = terms[:n]
+                break
+            if trial_status == cp_model.UNKNOWN:
+                shorter_unknown = True
+                # Avoid accumulating unbounded search time across twelve horizons.
+                break
     m, x, available, allocations, geneds, ulc, labels = build_model(
         profile, p, courses, terms, forbidden, fixed
     )
@@ -357,6 +386,10 @@ def generate(profile, p, courses, forbidden=None, fixed=None, limit=3):
                 "Gen Ed allocations use the reviewed audit remaining counts.",
                 "Special topics, STICs, and unmodeled math substitutions require advisor review.",
             ]
+            if result == cp_model.FEASIBLE or shorter_unknown:
+                conditions.append(
+                    "A valid candidate was found before the time limit; earliest graduation and preference optimality are not proven."
+                )
             if any(s.term != p.start_term for s in semesters):
                 conditions.append(
                     "Future-term offerings are unknown projections based on the loaded catalog; no future seats are guaranteed."
@@ -372,7 +405,7 @@ def generate(profile, p, courses, forbidden=None, fixed=None, limit=3):
                 ]
                 for area in RULES["areas"]
             }
-            coverage["Concentration"] = [c for c in ulc if c in selected or c in passed(profile)]
+            coverage["Concentration"] = [c for c, v in ulc.items() if solver.value(v)]
             for (c, code), v in geneds.items():
                 if solver.value(v):
                     coverage.setdefault(code, []).append(c)
@@ -410,6 +443,7 @@ def generate(profile, p, courses, forbidden=None, fixed=None, limit=3):
         status=status,
         plans=plans,
         messages=list(dict.fromkeys(messages))[:18],
-        sources=sorted(set(c.source for c in courses)),
+        sources=sorted({c.source for c in courses}),
         horizon=terms,
+        course_titles={c.id: c.title for c in courses},
     )

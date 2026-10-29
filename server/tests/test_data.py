@@ -14,3 +14,9 @@ def test_official_catalog_enforces_known_prerequisite_prefix_and_retains_permiss
     assert ["MATH240", "MATH341"] in c.prerequisites
     assert any("permission" in r for r in c.restrictions)
     assert c.credits == 3
+
+
+def test_link_spacing_does_not_drop_required_courses():
+    html = """<div class="courseblock"><p class="courseblocktitle">CMSC422 Machine Learning (3 Credits)</p><p class="courseblockextra"><strong>Prerequisite:</strong> Minimum grade of C- in <a>CMSC320</a>, <a>CMSC330</a>, and <a>CMSC351</a>; and permission of department.</p></div>"""
+    c = parse_catalog(html, "synthetic", "2026-10-29")[0]
+    assert c.prerequisites == [["CMSC320"], ["CMSC330"], ["CMSC351"]]

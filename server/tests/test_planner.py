@@ -185,3 +185,27 @@ def test_independent_research_does_not_automatically_satisfy_concentration():
     p, prefs, courses = fixture()
     courses[-1].title = "Independent Research"
     assert generate(p, prefs, courses, limit=1).status == "infeasible"
+
+
+def test_progress_must_precede_planned_semesters():
+    p, prefs, courses = fixture()
+    p.attempts[0].status = "in_progress"
+    p.attempts[0].term = prefs.start_term
+    assert generate(p, prefs, courses).status == "needs_review"
+
+
+def test_math_requirement_cannot_double_count_toward_concentration():
+    p, prefs, courses = fixture()
+    prefs.concentration = "STAT"
+    p.attempts = [a for a in p.attempts if a.course != "STAT400"]
+    courses = [c for c in courses if not c.id.startswith("HIST")] + [
+        course(f"STAT{n}") for n in [401, 410, 420, 430]
+    ]
+    assert generate(p, prefs, courses, limit=1).status == "infeasible"
+
+
+def test_earliest_mode_uses_shortest_feasible_horizon():
+    p, prefs, courses = fixture()
+    prefs.target_term = None
+    result = generate(p, prefs, courses, limit=1)
+    assert result.plans[-1].semesters[-1].term == "202708"
