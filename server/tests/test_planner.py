@@ -184,6 +184,7 @@ def test_crosslisted_courses_do_not_double_count_credits():
 def test_independent_research_does_not_automatically_satisfy_concentration():
     p, prefs, courses = fixture()
     courses[-1].title = "Independent Research"
+    courses[-2].title = "Independent Research"
     assert generate(p, prefs, courses, limit=1).status == "infeasible"
 
 
@@ -209,3 +210,23 @@ def test_earliest_mode_uses_shortest_feasible_horizon():
     prefs.target_term = None
     result = generate(p, prefs, courses, limit=1)
     assert result.plans[-1].semesters[-1].term == "202708"
+
+
+def test_transfer_concentration_credits_are_capped_at_six():
+    p, prefs, courses = fixture()
+    p.credits_completed = 120
+    for i, c in enumerate(c for c in courses if c.id.startswith("HIST")):
+        p.attempts.append(
+            Attempt(
+                course=c.id,
+                term="202601",
+                credits=3,
+                grade="TA" if i < 2 else "A",
+                status="completed",
+                transfer=i < 2,
+            )
+        )
+    assert generate(p, prefs, courses, limit=1).plans
+    p.attempts[-2].transfer = True
+    p.attempts[-2].grade = "TA"
+    assert generate(p, prefs, courses, limit=1).status == "infeasible"

@@ -160,12 +160,14 @@ def build_model(profile, p, courses, terms, forbidden=None, fixed=None):
         "Six CS elective credits must be separate from the five area courses",
     )
     ulc = {}
+    course_metadata = {c.id: c for c in courses}
+    experiential = set()
     for c in all_ids:
         if not c.startswith(p.concentration) or not c[len(p.concentration) :].isdigit():
             continue
         if not 300 <= int(c[len(p.concentration) :]) < 500:
             continue
-        co = available.get(c)
+        co = course_metadata.get(c)
         if co and (
             any(v.startswith("CMSC") for v in co.crosslisted)
             or any("CMSC" in r and "Credit only" in r for r in co.restrictions)
@@ -173,15 +175,13 @@ def build_model(profile, p, courses, terms, forbidden=None, fixed=None):
             continue
         if c in ["STAT400", "MATH240"] or canonical(c).startswith("CMSC"):
             continue
-        # Independent/experiential courses require individualized approval; omit from automatic ULC allocation.
+        # At most three approved independent/experiential credits can be allocated.
         if co and any(
             s in co.title.lower() for s in ["independent", "internship", "research", "experiential"]
         ):
-            continue
+            experiential.add(c)
         if p.concentration == "ENGL" and co and "FSPW" in co.geneds:
             continue
-        if c in existing and existing[c].transfer:
-            continue  # transfer ULC requires advisor review
         v = m.new_bool_var("ulc:" + c)
         m.add(v <= used[c])
         if c in major_math:
@@ -190,6 +190,21 @@ def build_model(profile, p, courses, terms, forbidden=None, fixed=None):
     rule(
         m.add(sum(int(credits(c)) * v for c, v in ulc.items()) >= 12),
         f"12 eligible upper-level {p.concentration} concentration credits are required",
+    )
+    rule(
+        m.add(
+            sum(
+                int(credits(c)) * v
+                for c, v in ulc.items()
+                if c in existing and existing[c].transfer
+            )
+            <= 6
+        ),
+        "At most six transfer credits may count toward concentration",
+    )
+    rule(
+        m.add(sum(int(credits(c)) * v for c, v in ulc.items() if c in experiential) <= 3),
+        "At most three independent/experiential credits may count toward concentration",
     )
     gened_alloc = {}
     for code, need in profile.gened_remaining.items():
