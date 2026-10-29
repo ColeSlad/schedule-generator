@@ -86,6 +86,9 @@ def build_model(profile,p,courses,terms,forbidden=None,fixed=None):
         co=available.get(c)
         if co and (any(v.startswith('CMSC') for v in co.crosslisted) or any('CMSC' in r and 'Credit only' in r for r in co.restrictions)):continue
         if c in ['STAT400','MATH240'] or canonical(c).startswith('CMSC'):continue
+        # Independent/experiential courses require individualized approval; omit from automatic ULC allocation.
+        if co and any(s in co.title.lower() for s in ['independent','internship','research','experiential']):continue
+        if p.concentration=='ENGL' and co and 'FSPW' in co.geneds:continue
         if c in existing and existing[c].transfer:continue # transfer ULC requires advisor review
         ulc.append(c)
     rule(m.add(sum(int(credits(c))*used[c] for c in ulc)>=12),f'12 eligible upper-level {p.concentration} concentration credits are required')
@@ -111,7 +114,8 @@ def build_model(profile,p,courses,terms,forbidden=None,fixed=None):
     rule(m.add(sum(co.credits*chosen[c] for c,co in available.items() if c.startswith('CMSC') and int(c[4:7])>=300)+round(profile.major_upper_credits+sum(a.credits for a in profile.attempts if a.status=='in_progress' and a.course.startswith('CMSC') and int(a.course[4:7])>=300))>=12),'At least 12 upper-level major credits are required')
     for group in [['CMSC460','CMSC466']]:m.add(sum(used.get(c,0) for c in group)<=1)
     for co in available.values():
-        for other in co.crosslisted:
+        credit_only=[v for r in co.restrictions if r.startswith('Credit only granted for:') for v in re.findall(r'[A-Z]{3,4}\d{3}[A-Z]?',r)]
+        for other in set(co.crosslisted+credit_only)-{co.id}:
             if other in used:m.add(chosen[co.id]+used[other]<=1)
     for combination in forbidden or []:
         m.add(sum(x[c,p.start_term] for c in combination if (c,p.start_term) in x)<=len(combination)-1)

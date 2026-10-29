@@ -3,7 +3,7 @@ import re
 import httpx
 from fastapi import FastAPI, HTTPException, Query
 from .models import PlanRequest, PlanResult, ValidateRequest
-from .data import get_catalog,get_sections
+from .data import get_catalog,get_sections,get_planning_catalog
 from .planner import generate
 from .rules import RULES
 from .scheduling import schedules
@@ -35,7 +35,7 @@ def load(request):
     p=request.preferences
     prefixes=['CMSC','MATH','STAT','ENGL','HIST','ECON',p.concentration]
     prefixes+= [re.match(r'[A-Z]+',c)[0] for c in p.pinned if re.match(r'[A-Z]+',c)]
-    return get_catalog(p.start_term,prefixes[:8])
+    return get_planning_catalog(p.start_term,list(dict.fromkeys(prefixes))[:8])
 
 @app.post('/plans/generate',response_model=PlanResult)
 def plan(request:PlanRequest):

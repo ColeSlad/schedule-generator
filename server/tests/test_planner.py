@@ -62,3 +62,16 @@ def test_linked_meetings_seats_and_pinned_sections():
 def test_blocked_times():
     p=Preferences(blocked=[Meeting(days='MWF',start=590,end=610)])
     assert not schedules(['CMSC420'],{'CMSC420':[section('CMSC420','0101',600)]},p)[0]
+
+def test_tuesday_and_thursday_are_distinct_days():
+    from server.app.scheduling import conflicts
+    assert not conflicts(Meeting(days='Tu',start=600,end=660),Meeting(days='Th',start=600,end=660))
+    assert conflicts(Meeting(days='TuTh',start=600,end=660),Meeting(days='Th',start=650,end=700))
+
+def test_crosslisted_courses_do_not_double_count_credits():
+    p,prefs,courses=fixture();courses[0].crosslisted=['HIST300'];prefs.pinned={'CMSC411':'202701','HIST300':'202701'}
+    assert generate(p,prefs,courses,limit=1).status=='infeasible'
+
+def test_independent_research_does_not_automatically_satisfy_concentration():
+    p,prefs,courses=fixture();courses[-1].title='Independent Research'
+    assert generate(p,prefs,courses,limit=1).status=='infeasible'

@@ -21,3 +21,4 @@ describe('audit import',()=>{
  it('flags inconsistent credit totals',()=>expect(parseAudit(audit.replace('Credits*: 7','Credits*: 9')).issues.some(i=>i.includes('rows total'))).toBe(true));
  it('rejects unrelated PDFs',()=>expect(()=>parseAudit('hello')).toThrow());
 });
+it('preserves plus/minus grades',()=>expect(parseAudit(audit).attempts.find(a=>a.course==='CMSC132')?.grade).toBe('B+'));

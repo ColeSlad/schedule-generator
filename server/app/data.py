@@ -41,7 +41,7 @@ def parse_courses(html, term, url, stamp):
     soup=BeautifulSoup(html,'html.parser'); courses=[]
     for node in soup.select('.course'):
         code=node.get('id','')
-        if not re.fullmatch(r'[A-Z]{3,4}\d{3}[A-Z]?',code):continue
+        if not re.fullmatch(r'[A-Z]{3,4}\d{3}[A-Z]?',code) or not 100<=int(re.search(r'\d{3}',code)[0])<500:continue
         credit=value(node,'.course-min-credits') or value(node,'.course-credits')
         if not credit:
             m=re.search(r'Credits:\s*(\d+)',node.get_text(' ',strip=True)); credit=m[1] if m else ''
@@ -58,8 +58,10 @@ def parse_courses(html, term, url, stamp):
             else:
                 restrictions.append('Confirm prerequisite: '+p)
                 # Safe required simple prefix (e.g. CMSC351; and ...); do not guess OR precedence.
-                first=re.match(r'(?:Minimum grade of C- in )?((?:[A-Z]{3,4}\d{3})(?: and [A-Z]{3,4}\d{3})*);',p)
+                first=re.match(r'(?:Minimum grade of C- in )?((?:[A-Z]{3,4}\d{3})(?:(?:,? and |, )[A-Z]{3,4}\d{3})*);',p)
                 if first:groups=[[c] for c in re.findall(r'[A-Z]{3,4}\d{3}',first[1])]
+                for alternatives in re.findall(r'1 course[^;]*?from \(([^)]+)\)',p):
+                    groups.append(re.findall(r'[A-Z]{3,4}\d{3}',alternatives))
         for label in ['Restriction','Corequisite','Credit only granted for']:
             m=re.search(label+r':\s*(.*?)(?=Prerequisite:|Restriction:|Corequisite:|Credit only|Cross-listed|$)',text)
             if m:restrictions.append(label+': '+m[1].strip())
@@ -107,3 +109,18 @@ def get_sections(term, course):
     url=f'{BASE}/{term}/sections?courseIds={course}'
     body,stamp,stale=cached_get(url,300)
     return parse_sections(body,course,url,stamp),stale
+
+
+def get_planning_catalog(term,prefixes):
+    """Combine published target offerings with two preceding regular terms as candidates."""
+    current,warnings=get_catalog(term,prefixes)
+    merged={c.id:c for c in current}
+    y=int(term[:4]);code=term[4:]
+    previous=([f'{y-1}08',f'{y-1}01'] if code=='01' else [f'{y}01',f'{y-1}08'])
+    for historic in previous:
+        items,notes=get_catalog(historic,prefixes)
+        if notes:warnings.append(f'Historical candidate coverage for {historic} is incomplete.')
+        for course in items:
+            if course.id in merged:merged[course.id].terms.append(historic)
+            else:merged[course.id]=course
+    return list(merged.values()),list(dict.fromkeys(warnings))

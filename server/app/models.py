@@ -26,8 +26,15 @@ class Profile(BaseModel):
     reviewed: bool = False
     overrides: list[str] = Field(default_factory=list)
 
+    @model_validator(mode='after')
+    def geneds(self):
+        valid={'FSAW','FSPW','FSOC','FSMA','FSAR','DSHU','DSHS','DSNL','DSNS','DSSP','SCIS','DVUP','DVCC'}
+        if any(k not in valid or not 0<=v<=2 for k,v in self.gened_remaining.items()):
+            raise ValueError('Unknown Gen Ed category or invalid remaining count')
+        return self
+
 class Meeting(BaseModel):
-    days: str
+    days: str = Field(pattern=r'^(?:M|Tu|W|Th|F|Sa|Su)+$')
     start: int = Field(ge=0, lt=1440)
     end: int = Field(gt=0, le=1440)
     location: str = ''
@@ -107,3 +114,8 @@ class PlanResult(BaseModel):
 
 class ValidateRequest(PlanRequest):
     plan: Plan
+    @model_validator(mode='after')
+    def unique_terms(self):
+        if len({s.term for s in self.plan.semesters})!=len(self.plan.semesters):
+            raise ValueError('Each semester must appear once')
+        return self

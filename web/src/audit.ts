@@ -12,7 +12,7 @@ export function parseAudit(raw:string):Profile {
   let group=''; let unused=false;
   const lines=text.split('\n');
   // Rows can contain multiple course attempts after coordinate-based line grouping.
-  const courseRow=/(Sp|Fa|Su|Wi)(\d{2})\s+([A-Z][A-Z0-9 /-]*?)\s+(\d+\.\d{2})\s+((?:(?:MA|MS)\s+)?(?:IP|TP|TA|[ABCDF][+-]?|P|W|I|S)(?:\s+tna)?)\b/g;
+  const courseRow=/(Sp|Fa|Su|Wi)(\d{2})\s+([A-Z][A-Z0-9 /-]*?)\s+(\d+\.\d{2})\s+((?:(?:MA|MS)\s+)?(?:IP|TP|TA|[ABCDF][+-]?|P|W|I|S)(?:\s+tna)?)(?=\s|$)/g;
   for(let i=0;i<lines.length;i++) {
     const line=lines[i];
     if(line.includes('Unused Courses')){unused=true;group='unused';}

@@ -1,8 +1,9 @@
+import re
 from ortools.sat.python import cp_model
 from .models import Section
 
 def conflicts(a,b):
-    return bool(set(a.days)&set(b.days)) and a.start<b.end and b.start<a.end
+    return bool(set(re.findall(r'Tu|Th|Sa|Su|M|W|F',a.days))&set(re.findall(r'Tu|Th|Sa|Su|M|W|F',b.days))) and a.start<b.end and b.start<a.end
 
 def schedules(course_ids,sections,p,limit=3):
     """Each Testudo section includes its own linked lecture/discussion/lab meetings."""
