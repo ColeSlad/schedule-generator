@@ -1,4 +1,5 @@
 """Deterministic graduation planning. Infeasibility applies only to the loaded candidates."""
+import re
 from ortools.sat.python import cp_model
 from .models import Plan, PlanResult, Semester
 from .rules import RULES, passed, canonical, supported
@@ -106,7 +107,7 @@ def build_model(profile,p,courses,terms,forbidden=None,fixed=None):
     resident_ip=sum(a.credits for a in profile.attempts if a.status=='in_progress' and not a.transfer)
     rule(m.add(extra+round(profile.resident_credits+resident_ip)>=30),'At least 30 UMD residence credits are required')
     upper_ip=sum(a.credits for a in profile.attempts if a.status=='in_progress' and a.course[-3:].isdigit() and int(a.course[-3:])>=300)
-    rule(m.add(sum(co.credits*chosen[c] for c,co in available.items() if int(c[len(''.join(filter(str.isalpha,c[:4]))):len(''.join(filter(str.isalpha,c[:4])))+3])>=300)+round(profile.upper_credits+upper_ip)>=15),'At least 15 upper-level credits are required')
+    rule(m.add(sum(co.credits*chosen[c] for c,co in available.items() if int(re.search(r'\d{3}',c)[0])>=300)+round(profile.upper_credits+upper_ip)>=15),'At least 15 upper-level credits are required')
     rule(m.add(sum(co.credits*chosen[c] for c,co in available.items() if c.startswith('CMSC') and int(c[4:7])>=300)+round(profile.major_upper_credits+sum(a.credits for a in profile.attempts if a.status=='in_progress' and a.course.startswith('CMSC') and int(a.course[4:7])>=300))>=12),'At least 12 upper-level major credits are required')
     for group in [['CMSC460','CMSC466']]:m.add(sum(used.get(c,0) for c in group)<=1)
     for co in available.values():
@@ -143,7 +144,7 @@ def generate(profile,p,courses,forbidden=None,fixed=None,limit=3):
             if any(s.term!=p.start_term for s in semesters):conditions.append('Future-term offerings are unknown projections based on the loaded catalog; no future seats are guaranteed.')
             conditions+= [f'{c}: {r}' for c in sorted(selected) for r in available[c].restrictions]
             conditions+= [f'Override: {s}' for s in profile.overrides]
-            coverage={area:[c for c,picks in allocations.items() if c in RULES['areas'][area] and any(solver.value(v) for v in picks) ] for area in RULES['areas']}
+            coverage={area:[c for c,picks in allocations.items() if c in RULES['areas'][area] and any(solver.value(v) for v in picks if v.name==f'area:{area}:{c}') ] for area in RULES['areas']}
             coverage['Concentration']=[c for c in ulc if c in selected or c in passed(profile)]
             for (c,code),v in geneds.items():
                 if solver.value(v):coverage.setdefault(code,[]).append(c)

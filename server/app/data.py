@@ -46,7 +46,7 @@ def parse_courses(html, term, url, stamp):
         if not credit:
             m=re.search(r'Credits:\s*(\d+)',node.get_text(' ',strip=True)); credit=m[1] if m else ''
         if not credit.isdigit() or not 1<=int(credit)<=6:continue
-        text=' '.join(n.get_text(' ',strip=True) for n in node.select('.approved-course-text, .course-text'))
+        text=' '.join(n.parent.get_text(' ',strip=True) for n in node.select('.approved-course-text strong'))
         if not text:text=node.get_text(' ',strip=True)
         prereq=re.search(r'Prerequisite:\s*(.*?)(?=Restriction:|Corequisite:|Credit only|Cross-listed|$)',text)
         restrictions=[]; groups=[]
@@ -58,8 +58,8 @@ def parse_courses(html, term, url, stamp):
             else:
                 restrictions.append('Confirm prerequisite: '+p)
                 # Safe required simple prefix (e.g. CMSC351; and ...); do not guess OR precedence.
-                first=re.match(r'([A-Z]{3,4}\d{3});\s*and',p)
-                if first:groups=[[first[1]]]
+                first=re.match(r'(?:Minimum grade of C- in )?((?:[A-Z]{3,4}\d{3})(?: and [A-Z]{3,4}\d{3})*);',p)
+                if first:groups=[[c] for c in re.findall(r'[A-Z]{3,4}\d{3}',first[1])]
         for label in ['Restriction','Corequisite','Credit only granted for']:
             m=re.search(label+r':\s*(.*?)(?=Prerequisite:|Restriction:|Corequisite:|Credit only|Cross-listed|$)',text)
             if m:restrictions.append(label+': '+m[1].strip())
