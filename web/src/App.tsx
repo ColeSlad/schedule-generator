@@ -175,7 +175,7 @@ function Workspace() {
     if (codes.length) ensureInsights({ courses: codes, instructors });
   }, [result, ensureInsights]);
   const matchingCourses = courses.filter((c) =>
-    `${c.id} ${c.title} ${c.geneds.join(" ")}`
+    `${c.id} ${c.title} ${c.geneds.join(" ")} ${(c.aliases ?? []).join(" ")}`
       .toLowerCase()
       .includes(search.toLowerCase()),
   );

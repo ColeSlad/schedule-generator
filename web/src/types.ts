@@ -48,6 +48,7 @@ export interface Preferences {
 }
 export interface Course {
   id: string;
+  aliases?: string[];
   title: string;
   credits: number;
   geneds: string[];

@@ -12,7 +12,7 @@
 
 ## Interfaces
 
-`GET /catalog?term=202701&prefixes=CMSC,ENGL,HIST` returns published courses and warnings. `GET /sections?term=202701&course=CMSC420` returns bundles and staleness. `GET /rules` exposes the versioned rule pack.
+`GET /catalog?term=202701&concentration=BMIN` returns published courses, course aliases, and warnings using the same department mapping as the planner. General Business includes BMIN and BMGT; aliases support searches for renamed courses and approved substitutes. Explicit department requests remain available through `prefixes=CMSC,ENGL,HIST`. `GET /sections?term=202701&course=CMSC420` returns bundles and staleness. `GET /rules` exposes the versioned rule pack.
 
 `POST /plans/generate` takes `{profile, preferences}`. `POST /plans/validate` adds `{plan}`. Both return status, candidate plans, requirement coverage, conditions, source links, horizon, and course titles. API schemas are available at `/docs`; the same routes are available below `/api` for production static serving.
 

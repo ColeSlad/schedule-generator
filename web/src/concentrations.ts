@@ -1,4 +1,4 @@
-// Single-department ULC choices. Sources and course exclusions live in the rule pack.
+// ULC choices. Department mappings and course exclusions live in the rule pack.
 export const concentrations = [
   ["AAAS", "African American and Africana Studies"],
   ["AMST", "American Studies"],
@@ -20,7 +20,7 @@ export const concentrations = [
   ["FMSC", "Family Science"],
   ["BUFN", "Finance"],
   ["FREN", "French"],
-  ["BMIN", "General Business Minor"],
+  ["BMIN", "General Business"],
   ["GEOG", "Geographical Sciences"],
   ["GEOL", "Geology"],
   ["GERS", "German Studies"],

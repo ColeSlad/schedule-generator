@@ -42,7 +42,7 @@ async function requestData<T>(path: string, body?: unknown): Promise<T> {
 }
 export const loadCatalog = (term: string, concentration: string) =>
   requestData<{ courses: Course[]; warnings: string[] }>(
-    `/catalog?term=${term}&prefixes=${[...new Set(["CMSC", "MATH", "STAT", "ENGL", "HIST", "ECON", concentration])].join(",")}`,
+    `/catalog?term=${term}&concentration=${encodeURIComponent(concentration)}`,
   );
 export const generate = (profile: Profile, preferences: Preferences) =>
   requestData<PlanResult>("/plans/generate", { profile, preferences });
