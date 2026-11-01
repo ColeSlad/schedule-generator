@@ -1,15 +1,14 @@
 import { useEffect, useRef, useState } from "react";
-import { ArrowUpRight, LoaderCircle, RefreshCw, Star, X } from "lucide-react";
+import { ArrowUpRight, X } from "lucide-react";
 import type { Preferences, Section } from "../types";
 import { termLabel } from "../types";
 import { loadSections } from "../api";
 import { useInsights } from "./InsightsProvider";
 import { instructorNames, overlaps } from "./metrics";
+import { ProfessorRating } from "./Comparison";
 import type { GradeSummary } from "./types";
 const clock = (n: number) =>
   `${Math.floor(n / 60) % 12 || 12}:${String(n % 60).padStart(2, "0")}${n >= 720 ? "pm" : "am"}`;
-const date = (s: string) =>
-  Number.isNaN(Date.parse(s)) ? "" : new Date(s).toLocaleDateString();
 
 function Distribution({ grades }: { grades: GradeSummary }) {
   const groups = [
@@ -39,7 +38,7 @@ function Distribution({ grades }: { grades: GradeSummary }) {
               key={g.label}
               className={`grade-${g.label}`}
               style={{ width: `${(g.count / total) * 100}%` }}
-              title={`${g.label}: ${g.count} (${((g.count / total) * 100).toFixed(1)}%)`}
+              title={`${g.label}: ${g.count}`}
             />
           ))}
       </div>
@@ -53,13 +52,6 @@ function Distribution({ grades }: { grades: GradeSummary }) {
             </span>
           ))}
       </div>
-      <p className="small muted">
-        {grades.graded_count.toLocaleString()} letter grades ·{" "}
-        {grades.withdrawals.toLocaleString()} withdrawals
-        {grades.first_term && grades.last_term
-          ? ` · ${termLabel(grades.first_term)}–${termLabel(grades.last_term)}`
-          : ""}
-      </p>
     </div>
   );
 }
@@ -126,46 +118,27 @@ export function CourseDetails({
   }, [course, preferences.start_term, ensure]);
   const profFor = (name: string) =>
     info?.professors.find((p) => p.requested_name === name);
-  const rating = (section: Section) => {
+  const score = (section: Section, kind: "rating" | "gpa") => {
     const values = instructorNames(section)
-      .map((n) => profFor(n)?.average_rating)
+      .map((n) =>
+        kind === "rating"
+          ? profFor(n)?.average_rating
+          : profFor(n)?.grades?.average_gpa,
+      )
       .filter((n): n is number => n != null);
     return values.length
       ? values.reduce((a, b) => a + b, 0) / values.length
-      : null;
+      : -1;
   };
-  const sorted = [...sections].sort((a, b) => {
-    if (sort === "gpa") {
-      const mean = (section: Section) => {
-        const values = instructorNames(section)
-          .map((n) => profFor(n)?.grades?.average_gpa)
-          .filter((n): n is number => n != null);
-        return values.length
-          ? values.reduce((a, b) => a + b, 0) / values.length
-          : -1;
-      };
-      return mean(b) - mean(a);
-    }
-    if (sort === "seats") return (b.open_seats ?? -1) - (a.open_seats ?? -1);
-    if (sort === "time")
-      return (
-        Math.min(...a.meetings.map((m) => m.start), 1440) -
-        Math.min(...b.meetings.map((m) => m.start), 1440)
-      );
-    return (rating(b) ?? -1) - (rating(a) ?? -1);
-  });
-  const reload = () =>
-    ensure(
-      {
-        courses: [course],
-        instructors: {
-          [course]: [
-            ...new Set([...initialNames, ...sections.flatMap(instructorNames)]),
-          ].slice(0, 10),
-        },
-      },
-      true,
-    );
+  const sorted = [...sections].sort((a, b) =>
+    sort === "seats"
+      ? (b.open_seats ?? -1) - (a.open_seats ?? -1)
+      : sort === "time"
+        ? Math.min(...a.meetings.map((m) => m.start), 1440) -
+          Math.min(...b.meetings.map((m) => m.start), 1440)
+        : score(b, sort === "gpa" ? "gpa" : "rating") -
+          score(a, sort === "gpa" ? "gpa" : "rating"),
+  );
   return (
     <dialog
       ref={ref}
@@ -188,67 +161,57 @@ export function CourseDetails({
           <X size={22} />
         </button>
       </div>
-      <div className="insight-headline">
-        <div>
-          <span>PlanetTerp GPA</span>
-          <strong>
-            {info?.average_gpa?.toFixed(2) ?? "—"}
-            <small>/ 4.0</small>
-          </strong>
-        </div>
-        <div>
-          <span>Recorded letter grades</span>
-          <strong>{info?.grades?.graded_count.toLocaleString() ?? "—"}</strong>
-        </div>
-        <a
-          className="text-button"
-          href={`https://planetterp.com/course/${course}`}
-          target="_blank"
-          rel="noreferrer"
-        >
-          PlanetTerp <ArrowUpRight size={14} />
-        </a>
+      <div className="course-overview">
+        <span title="Historical GPA from PlanetTerp; withdrawals are included in its calculation.">
+          GPA <strong>{info?.average_gpa?.toFixed(2) ?? "—"}</strong>
+        </span>
+        {info?.stale && <span className="muted">Cached</span>}
+      </div>
+      {info?.grades && (
+        <details className="grade-details">
+          <summary>Grade distribution</summary>
+          <Distribution grades={info.grades} />
+        </details>
+      )}
+      {warnings.length > 0 && !pending.has(course) && (
         <button
           className="text-button"
-          disabled={pending.has(course)}
-          onClick={reload}
-          aria-label="Retry PlanetTerp data"
+          onClick={() =>
+            ensure(
+              {
+                courses: [course],
+                instructors: {
+                  [course]: [
+                    ...new Set([
+                      ...initialNames,
+                      ...sections.flatMap(instructorNames),
+                    ]),
+                  ],
+                },
+              },
+              true,
+            )
+          }
         >
-          {pending.has(course) ? (
-            <LoaderCircle size={15} className="spin" />
-          ) : (
-            <RefreshCw size={15} />
-          )}
+          Retry stats
         </button>
-      </div>
-      {info?.grades ? (
-        <Distribution grades={info.grades} />
-      ) : (
-        <p className="muted small">
-          {pending.has(course)
-            ? "Loading grade history…"
-            : "No grade distribution available."}
-        </p>
-      )}
-      {info?.grades && info.grades.graded_count < 30 && (
-        <p className="data-note">Limited grade sample</p>
       )}
       <div className="section-heading">
-        <h3>Sections · {termLabel(preferences.start_term)}</h3>
+        <h3>{termLabel(preferences.start_term)}</h3>
         <select
           aria-label="Sort course sections"
           value={sort}
           onChange={(e) => setSort(e.target.value)}
         >
-          <option value="rating">Professor rating</option>
-          <option value="gpa">GPA with instructor</option>
+          <option value="rating">Rating</option>
+          <option value="gpa">GPA</option>
           <option value="seats">Open seats</option>
-          <option value="time">Start time</option>
+          <option value="time">Time</option>
         </select>
       </div>
       {loading && (
         <p role="status" className="muted">
-          Loading sections…
+          Loading…
         </p>
       )}
       {error && (
@@ -256,13 +219,9 @@ export function CourseDetails({
           {error}
         </p>
       )}
-      {stale && (
-        <p className="review-note">
-          Section availability is cached; confirm seats on Testudo.
-        </p>
-      )}
+      {stale && <p className="data-note">Cached seats</p>}
       {!loading && !sections.length && !error && (
-        <p className="muted">No published sections for this term.</p>
+        <p className="muted">No sections available.</p>
       )}
       {!!sections.length && (
         <div className="table-wrap section-comparison">
@@ -270,9 +229,9 @@ export function CourseDetails({
             <thead>
               <tr>
                 <th>Section</th>
-                <th>Instructor & reviews</th>
-                <th>Course GPA with instructor</th>
-                <th>Meetings</th>
+                <th>Professor</th>
+                <th title="Historical course GPA with this professor">GPA</th>
+                <th>Time</th>
                 <th>Open seats</th>
                 <th />
               </tr>
@@ -297,59 +256,27 @@ export function CourseDetails({
                     <td>{s.id}</td>
                     <td>
                       {instructorNames(s).length
-                        ? instructorNames(s).map((name) => {
-                            const p = profFor(name);
-                            return (
-                              <div key={name} className="instructor-cell">
-                                {p?.source ? (
-                                  <a
-                                    href={p.source}
-                                    target="_blank"
-                                    rel="noreferrer"
-                                  >
-                                    {name} <ArrowUpRight size={10} />
-                                  </a>
-                                ) : (
-                                  <span>{name}</span>
-                                )}
-                                {p?.average_rating != null ? (
-                                  <small>
-                                    <Star size={10} />
-                                    {p.average_rating.toFixed(1)} / 5 ·{" "}
-                                    {p.review_count ?? "—"} reviews
-                                    {p.review_count != null &&
-                                    p.review_count < 5
-                                      ? " · Few reviews"
-                                      : ""}
-                                  </small>
-                                ) : p ? (
-                                  <small>Rating unavailable</small>
-                                ) : (
-                                  <button
-                                    className="text-button"
-                                    disabled={pending.has(course)}
-                                    onClick={() =>
-                                      ensure({
-                                        courses: [course],
-                                        instructors: { [course]: [name] },
-                                      })
-                                    }
-                                  >
-                                    Load rating
-                                  </button>
-                                )}
-                              </div>
-                            );
-                          })
+                        ? instructorNames(s).map((name) => (
+                            <div key={name} className="instructor-cell">
+                              <span>{name}</span>
+                              <ProfessorRating course={course} name={name} />
+                            </div>
+                          ))
                         : "TBA"}
                     </td>
                     <td>
                       {instructorNames(s).map((name) => {
                         const g = profFor(name)?.grades;
                         return (
-                          <div key={name}>
+                          <div
+                            key={name}
+                            title={
+                              g
+                                ? `${g.graded_count} historical letter grades`
+                                : undefined
+                            }
+                          >
                             {g?.average_gpa?.toFixed(2) ?? "—"}
-                            {g && <small>{g.graded_count} letter grades</small>}
                           </div>
                         );
                       })}
@@ -361,17 +288,15 @@ export function CourseDetails({
                           <small>{m.location}</small>
                         </div>
                       ))}
-                      {s.arranged && <small>TBA / arranged</small>}
+                      {s.arranged && <small>TBA</small>}
                       {blocked && (
-                        <small className="conflict-label">Blocked time</small>
+                        <small className="conflict-label">Unavailable</small>
                       )}
                       {collision && (
-                        <small className="conflict-label">
-                          Overlaps current schedule
-                        </small>
+                        <small className="conflict-label">Overlaps</small>
                       )}
                     </td>
-                    <td>{s.open_seats ?? "Unknown"}</td>
+                    <td>{s.open_seats ?? "—"}</td>
                     <td>
                       <button
                         className="text-button"
@@ -380,8 +305,8 @@ export function CourseDetails({
                           blocked
                             ? "Overlaps a blocked time"
                             : full
-                              ? "No confirmed open seats; enable full sections to consider this option"
-                              : "Regenerate after pinning to apply this section"
+                              ? "No confirmed open seats"
+                              : "Regenerate after pinning"
                         }
                         onClick={() => onPin(s)}
                       >
@@ -395,93 +320,19 @@ export function CourseDetails({
           </table>
         </div>
       )}
-      {pinned && (
-        <p className="data-note">
-          Section {pinned} pinned. Generate plans to apply it.
-        </p>
-      )}
-      {!!info?.professors.length && (
-        <section className="professor-reviews">
-          <h3>Professor reviews</h3>
-          {info.professors.map((p) => (
-            <article key={p.requested_name}>
-              <div className="card-heading">
-                <strong>{p.name}</strong>
-                {p.average_rating != null && (
-                  <span className="professor-score">
-                    <Star size={13} />
-                    {p.average_rating.toFixed(1)} / 5 · {p.review_count ?? "—"}{" "}
-                    reviews
-                  </span>
-                )}
-              </div>
-              {p.course_review_count != null && p.course_review_count > 0 && (
-                <p className="small muted">
-                  {course}: {p.course_rating?.toFixed(1)} / 5 from{" "}
-                  {p.course_review_count} reviews
-                </p>
-              )}
-              {p.recent_review?.excerpt ? (
-                <>
-                  <blockquote>“{p.recent_review.excerpt}”</blockquote>
-                  <p className="small muted">
-                    {p.recent_review.rating} / 5 ·{" "}
-                    {p.recent_review.course ?? "Course unspecified"}
-                    {date(p.recent_review.created)
-                      ? ` · ${date(p.recent_review.created)}`
-                      : ""}
-                  </p>
-                </>
-              ) : (
-                <p className="small muted">
-                  {p.status === "not_found"
-                    ? "No exact PlanetTerp match found."
-                    : "No review excerpt available."}
-                </p>
-              )}
-              {p.source && (
-                <a
-                  className="text-button"
-                  href={p.source}
-                  target="_blank"
-                  rel="noreferrer"
-                >
-                  Read all reviews <ArrowUpRight size={12} />
-                </a>
-              )}
-            </article>
-          ))}
-        </section>
-      )}
-      <details className="metric-notes">
-        <summary>
-          Sources & methodology{info?.stale ? " · Cached data" : ""}
-        </summary>
-        <p>
-          GPA uses PlanetTerp’s calculation, which includes withdrawals at zero
-          points and excludes “Other.” The letter-grade-only average is{" "}
-          {info?.grades?.letter_grade_gpa?.toFixed(2) ?? "unavailable"}. Sample
-          counts refer to historical records, not this section’s enrollment.
-        </p>
-        <p>
-          Professor ratings summarize student reviews. Reviews and grade history
-          are separate signals and do not measure workload. Instructors are
-          matched by name; unmatched instructors remain unscored.
-        </p>
-        <p>
-          Retrieved {info?.fetched_at ? date(info.fetched_at) : "unavailable"} ·{" "}
-          <a
-            href={`https://planetterp.com/course/${course}`}
-            target="_blank"
-            rel="noreferrer"
-          >
-            PlanetTerp source
-          </a>
-        </p>
-        {warnings.map((w) => (
-          <p key={w}>{w}</p>
-        ))}
-      </details>
+      <div className="course-detail-footer">
+        {pinned && (
+          <span className="data-note">Pinned · Regenerate to apply</span>
+        )}
+        <a
+          className="text-button"
+          href={`https://planetterp.com/course/${course}`}
+          target="_blank"
+          rel="noreferrer"
+        >
+          PlanetTerp <ArrowUpRight size={12} />
+        </a>
+      </div>
     </dialog>
   );
 }

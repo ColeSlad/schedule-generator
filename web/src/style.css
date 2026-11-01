@@ -745,11 +745,6 @@ td:nth-child(4) input {
   align-items: center;
   gap: 12px;
 }
-.semester-number {
-  font-size: 11px;
-  font-weight: 500;
-  color: #a9b299;
-}
 .planned-course {
   display: flex;
   align-items: center;
@@ -898,18 +893,6 @@ summary {
   background: #faf0dc;
   border-color: #c9ad74;
   color: #8e7546;
-}
-.section-list {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 16px;
-  margin-top: 20px;
-}
-.section-list p {
-  font-size: 11px;
-}
-.section-list .card-heading:last-child {
-  margin: 17px 0 0;
 }
 .modal-backdrop {
   position: fixed;
@@ -1258,9 +1241,6 @@ summary {
   .form-grid {
     gap: 14px;
   }
-  .section-list {
-    grid-template-columns: 1fr;
-  }
   .calendar {
     padding: 0;
   }
@@ -1488,25 +1468,6 @@ footer {
 .selected-schedule {
   background: #f8f0ef;
 }
-.metric-notes {
-  margin-top: 18px;
-  border-top: 1px solid var(--line);
-  padding-top: 13px;
-  color: var(--muted);
-  font-size: 11px;
-}
-.metric-notes summary {
-  font-size: 11px;
-  font-weight: 400;
-  display: list-item;
-}
-.metric-notes p {
-  margin-top: 10px;
-  font-size: 11px;
-}
-.metric-notes a {
-  text-decoration: underline;
-}
 .insight-dialog {
   width: min(1000px, calc(100vw - 32px));
   max-height: 90vh;
@@ -1532,33 +1493,6 @@ footer {
 .insight-dialog > .card-heading p {
   font-size: 12px;
   margin-top: 6px;
-}
-.insight-headline {
-  display: flex;
-  gap: 30px;
-  align-items: center;
-  padding: 18px 0;
-  border-top: 1px solid var(--line);
-}
-.insight-headline > div > span {
-  font-size: 11px;
-  color: var(--muted);
-}
-.insight-headline strong {
-  display: flex;
-  gap: 6px;
-  align-items: baseline;
-  font-size: 26px;
-  font-weight: 600;
-  margin-top: 6px;
-}
-.insight-headline strong small {
-  font-size: 13px;
-  font-weight: 400;
-  color: var(--muted);
-}
-.insight-headline > a {
-  margin-left: auto;
 }
 .grade-bars {
   display: flex;
@@ -1631,29 +1565,6 @@ footer {
 .conflict-label {
   color: #a5633c !important;
 }
-.professor-reviews {
-  margin-top: 30px;
-}
-.professor-reviews article {
-  padding: 18px 0;
-  border-bottom: 1px solid var(--line);
-}
-.professor-reviews .card-heading {
-  margin-bottom: 8px;
-}
-.professor-reviews strong {
-  font-size: 13px;
-}
-.professor-reviews blockquote {
-  margin: 12px 0;
-  padding-left: 12px;
-  border-left: 2px solid #e6d8d6;
-  font-size: 12px;
-  line-height: 1.7;
-}
-.professor-reviews .text-button {
-  margin-top: 9px;
-}
 .data-note {
   font-size: 11px;
   color: #8a753a;
@@ -1676,27 +1587,12 @@ footer {
   .insight-dialog {
     padding: 20px;
   }
-  .insight-headline {
-    gap: 18px;
-    flex-wrap: wrap;
-  }
-  .insight-headline strong {
-    font-size: 23px;
-  }
-  .insight-headline > a {
-    margin-left: 0;
-  }
   .schedule-comparison .card-heading {
     align-items: start;
     flex-direction: column;
   }
   .schedule-comparison table {
     min-width: 620px;
-  }
-  .professor-reviews .card-heading {
-    align-items: start;
-    flex-direction: column;
-    gap: 6px;
   }
   .course-browser-toolbar {
     font-size: 10px;
@@ -1707,8 +1603,291 @@ footer {
 }
 @media print {
   .insight-dialog,
-  .course-insights,
-  .metric-notes {
+  .course-insights {
     display: none !important;
   }
+}
+
+/* Primary decisions stay visible; secondary details open on demand. */
+details > summary {
+  font-size: 13px;
+  font-weight: 500;
+  gap: 12px;
+}
+details > summary::after {
+  content: "+";
+  font-size: 17px;
+  font-weight: 400;
+  color: #929889;
+  margin-left: auto;
+}
+details[open] > summary::after {
+  content: "−";
+}
+details > summary > span {
+  margin-left: auto;
+  font-size: 11px;
+}
+details[open] > summary {
+  margin-bottom: 18px;
+}
+.audit-summary {
+  margin-top: 18px;
+}
+.audit-details {
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
+}
+.audit-details .form-grid {
+  margin-top: 18px;
+  margin-bottom: 0;
+}
+.audit-history > .card-heading {
+  justify-content: flex-end;
+}
+.audit-notes {
+  margin-bottom: 20px;
+}
+.audit-notes textarea {
+  margin-top: 0;
+}
+.compact-notice {
+  padding: 9px 13px;
+  font-size: 12px;
+  justify-content: space-between;
+}
+.course-choices .card-heading {
+  margin-bottom: 0;
+}
+.course-name {
+  padding: 0;
+  text-align: left;
+  font-weight: 600;
+  font-size: 12px;
+}
+.course-name:hover {
+  color: var(--red);
+}
+.rating-inline {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 6px;
+}
+.rating-inline .text-button {
+  margin: 0;
+  font-size: 10px;
+}
+.schedule-comparison,
+.availability {
+  padding: 16px 20px;
+  margin-bottom: 12px;
+}
+.comparison-controls {
+  display: flex;
+  justify-content: flex-end;
+  margin: 12px 0;
+}
+.comparison-controls select {
+  width: 170px;
+  font-size: 12px;
+}
+.availability > .card-heading {
+  margin: 0;
+}
+.schedule-courses {
+  padding: 10px 18px;
+  margin-top: 18px;
+}
+.schedule-courses table {
+  min-width: 550px;
+}
+.schedule-courses td {
+  padding: 15px 8px;
+  font-size: 12px;
+}
+.schedule-courses td small {
+  color: var(--muted);
+  font-size: 10px;
+  margin-top: 5px;
+}
+.schedule-courses th {
+  font-size: 11px;
+}
+.schedule-courses .instructor-cell + .instructor-cell {
+  margin-top: 10px;
+}
+.time-axis {
+  display: block;
+  position: relative;
+}
+.time-axis > span {
+  position: absolute;
+  left: 8px;
+  font-size: 9px;
+}
+.insight-dialog {
+  width: min(880px, calc(100vw - 32px));
+  padding: 24px;
+  box-shadow: 0 12px 45px #18201422;
+}
+.insight-dialog::backdrop {
+  backdrop-filter: none;
+}
+.insight-dialog > .card-heading {
+  margin-bottom: 20px;
+}
+.course-overview {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+  font-size: 13px;
+  margin-bottom: 18px;
+}
+.course-overview strong {
+  margin-left: 8px;
+  font-size: 21px;
+  font-weight: 600;
+}
+.grade-details {
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+  padding: 13px 0;
+}
+.grade-details summary {
+  font-size: 12px;
+}
+.grade-distribution {
+  margin-top: 14px;
+}
+.grade-legend {
+  margin-bottom: 0;
+}
+.course-detail-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 20px;
+  align-items: center;
+  margin-top: 18px;
+}
+.course-detail-footer .data-note {
+  margin: 0;
+  margin-right: auto;
+}
+.section-comparison table {
+  min-width: 650px;
+}
+.section-comparison th {
+  font-size: 11px;
+}
+.insight-dialog .section-heading {
+  margin: 22px 0 12px;
+}
+.insight-dialog .section-heading h3 {
+  font-size: 14px;
+}
+.workspace-tools {
+  width: 100%;
+}
+.workspace-tools summary {
+  width: 65px;
+  font-size: 11px;
+}
+.workspace-tools > div {
+  display: flex;
+  gap: 20px;
+  flex-wrap: wrap;
+  margin-top: 14px;
+}
+.workspace-tools button {
+  font-size: 11px;
+}
+footer {
+  margin-top: 24px;
+  padding-top: 16px;
+}
+.modal-backdrop {
+  backdrop-filter: none;
+}
+@media (max-width: 560px) {
+  .insight-dialog {
+    padding: 20px;
+  }
+  .schedule-comparison,
+  .availability {
+    padding: 14px 16px;
+  }
+  .schedule-courses {
+    padding: 8px;
+  }
+  .course-detail-footer {
+    gap: 12px;
+  }
+  .audit-summary {
+    grid-template-columns: 1fr 1fr 1fr;
+  }
+  .audit-summary label {
+    font-size: 11px;
+  }
+}
+@media print {
+  .workspace-tools,
+  .availability,
+  .schedule-comparison {
+    display: none !important;
+  }
+}
+.example-tag {
+  margin-left: 12px;
+  vertical-align: middle;
+}
+.course-choices {
+  border: 0;
+  background: none;
+  box-shadow: none;
+  padding: 0;
+}
+.course-choices .card-heading {
+  justify-content: flex-end;
+}
+.audit-content {
+  max-width: 960px;
+  margin-left: 0;
+}
+.schedule-tools {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin: 14px 0 20px;
+}
+.schedule-tools > details {
+  padding: 0;
+  margin: 0;
+  border: 0;
+  background: none;
+  box-shadow: none;
+}
+.schedule-tools > details > summary {
+  width: max-content;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: white;
+  padding: 9px 12px;
+  font-size: 12px;
+}
+.schedule-tools > details[open] {
+  flex-basis: 100%;
+  padding: 16px;
+  background: white;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+.schedule-tools > details[open] > summary {
+  border: 0;
+  padding: 0;
+  background: none;
+  margin-bottom: 18px;
+}
+.schedule-tools + .section-heading {
+  margin-top: 20px;
 }

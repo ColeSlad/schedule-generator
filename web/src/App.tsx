@@ -6,7 +6,6 @@ import {
   CalendarDays,
   Check,
   CheckCircle2,
-  ChevronDown,
   Download,
   FileText,
   Flag,
@@ -17,7 +16,6 @@ import {
   RefreshCw,
   Search,
   Settings2,
-  ShieldCheck,
   Trash2,
   Upload,
   X,
@@ -45,8 +43,12 @@ import { generate, loadCatalog, validate } from "./api";
 import { demo } from "./demo";
 
 import { InsightsProvider, useInsights } from "./insights/InsightsProvider";
-import { instructorNames } from "./insights/metrics";
-import { CourseBadges, ScheduleComparison } from "./insights/Comparison";
+import { instructorNames, calendarRange } from "./insights/metrics";
+import {
+  CourseBadges,
+  ProfessorRating,
+  ScheduleComparison,
+} from "./insights/Comparison";
 import { CourseDetails } from "./insights/CourseDetails";
 
 type Tab = "overview" | "audit" | "plan" | "schedule";
@@ -99,12 +101,16 @@ function Workspace() {
     [search, setSearch] = useState(""),
     [browse, setBrowse] = useState(false),
     [saveError, setSaveError] = useState("");
+  const [allGeneds, setAllGeneds] = useState(false);
   const [pinTerm, setPinTerm] = useState("202701"),
     [blockedDay, setBlockedDay] = useState("MWF"),
     [blockedStart, setBlockedStart] = useState("09:00"),
     [blockedEnd, setBlockedEnd] = useState("10:00");
   const pdfInput = useRef<HTMLInputElement>(null),
     jsonInput = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [tab]);
   useEffect(() => {
     restore()
       .then((w) => {
@@ -132,6 +138,21 @@ function Workspace() {
   const plan = result?.plans[planIndex];
   const schedules = plan?.schedules ?? [];
   const schedule = schedules[scheduleIndex] ?? [];
+  const calendar = calendarRange(schedule);
+  const calendarDays = [
+    ["M", "Monday"],
+    ["Tu", "Tuesday"],
+    ["W", "Wednesday"],
+    ["Th", "Thursday"],
+    ["F", "Friday"],
+    ...["Sa", "Su"]
+      .filter((day) =>
+        schedule.some((s) =>
+          s.meetings.some((m) => dayTokens(m.days).includes(day)),
+        ),
+      )
+      .map((day) => [day, day === "Sa" ? "Saturday" : "Sunday"]),
+  ];
   useEffect(() => {
     if (!result) return;
     const instructors: Record<string, string[]> = {};
@@ -182,7 +203,7 @@ function Workspace() {
   ) => setPrefs((p) => ({ ...p, [key]: value }));
   async function upload(file?: File) {
     if (!file) return;
-    setBusy("Reading your audit on this device…");
+    setBusy("Reading audit…");
     setError("");
     try {
       setProfile(parseAudit(await (await import("./pdf")).extractAudit(file)));
@@ -196,7 +217,7 @@ function Workspace() {
     }
   }
   async function catalog() {
-    setBusy("Refreshing published course offerings…");
+    setBusy("Loading courses…");
     setError("");
     try {
       const r = await loadCatalog(prefs.start_term, prefs.concentration);
@@ -210,7 +231,7 @@ function Workspace() {
   }
   async function run() {
     if (!profile) return;
-    setBusy("Checking requirements and searching schedules…");
+    setBusy("Generating…");
     setError("");
     try {
       preferencesSchema.parse(prefs);
@@ -356,7 +377,7 @@ function Workspace() {
         </nav>
       </aside>
       <main>
-        <div className="content">
+        <div className={`content${tab === "audit" ? " audit-content" : ""}`}>
           <div className="page-heading">
             <div>
               <h1>
@@ -394,9 +415,16 @@ function Workspace() {
               {busy}
             </div>
           )}
-          {stale && (
-            <div className="notice">
-              Your inputs changed. Regenerate before using the saved result.
+          {stale && (tab === "plan" || tab === "schedule") && (
+            <div className="notice compact-notice">
+              Plan needs updating.
+              <button
+                className="text-button"
+                disabled={!!busy || !profile?.reviewed}
+                onClick={run}
+              >
+                Regenerate
+              </button>
             </div>
           )}
           {tab === "overview" && (
@@ -408,7 +436,6 @@ function Workspace() {
                     <br />
                     Your direction.
                   </h2>
-                  <p>Plan your courses through graduation.</p>
                   <button
                     className="button light"
                     onClick={() =>
@@ -470,21 +497,19 @@ function Workspace() {
               </div>
               <div className="degree-summary">
                 <section className="card">
-                  <div className="card-heading">
-                    <h3>Degree progress</h3>
-                    <span className="tag">CS GENERAL TRACK</span>
-                  </div>
                   <div className="degree-line">
                     <span className="degree-icon">
                       <GraduationCap size={28} />
                     </span>
                     <div>
                       <h3>Computer Science, B.S.</h3>
-                      <p>Fall 2025 catalog</p>
+                      <p>General track · Fall 2025</p>
                     </div>
                   </div>
                   <div className="progress-label">
-                    <span>Credit minimum</span>
+                    <span title="Completed and in-progress credits">
+                      Credits
+                    </span>
                     <strong>
                       {profile
                         ? `${statTotal} / 120`
@@ -498,12 +523,11 @@ function Workspace() {
                       }}
                     />
                   </div>
-                  <p className="muted small">Includes in-progress credits.</p>
                   <button
                     className="text-button"
                     onClick={() => setTab("audit")}
                   >
-                    Review degree requirements <ArrowRight size={15} />
+                    View audit <ArrowRight size={15} />
                   </button>
                 </section>
               </div>
@@ -534,27 +558,25 @@ function Workspace() {
               </section>
             ) : (
               <>
-                <div className="notice">
-                  <ShieldCheck size={18} />
-                  Only CS general track, program 07010, Fall 2025 is supported.
-                  Verify your track and catalog year.
-                </div>
-                <section className="card">
-                  <div className="card-heading">
-                    <h3>Imported academic profile</h3>
-                    <span className="tag">
-                      {profile.attempts.length} COURSE ATTEMPTS
-                    </span>
+                {(profile.program !== "07010" ||
+                  profile.catalog_year !== "Fall 2025") && (
+                  <div className="notice">
+                    This program or catalog year isn't supported yet.
                   </div>
-                  <div className="form-grid">
+                )}
+                <section className="card">
+                  <h3>
+                    Credits
+                    {profile.issues.some((issue) =>
+                      issue.startsWith("Synthetic example:"),
+                    ) && <span className="tag example-tag">Example</span>}
+                  </h3>
+                  <div className="form-grid audit-summary">
                     {(
                       [
-                        ["credits_completed", "Completed credits"],
-                        ["credits_in_progress", "In-progress credits"],
-                        ["resident_credits", "Residence credits earned"],
-                        ["upper_credits", "Upper-level credits earned"],
-                        ["major_upper_credits", "Major upper-level earned"],
-                        ["gpa", "Cumulative GPA"],
+                        ["credits_completed", "Completed"],
+                        ["credits_in_progress", "In progress"],
+                        ["gpa", "GPA"],
                       ] as const
                     ).map(([key, label]) => (
                       <label key={key}>
@@ -573,70 +595,120 @@ function Workspace() {
                         />
                       </label>
                     ))}
-                    <label>
-                      Program code
-                      <input
-                        value={profile.program}
-                        onChange={(e) =>
-                          changeProfile({ ...profile, program: e.target.value })
-                        }
-                      />
-                    </label>
-                    <label>
-                      Catalog year
-                      <input
-                        value={profile.catalog_year}
-                        onChange={(e) =>
-                          changeProfile({
-                            ...profile,
-                            catalog_year: e.target.value,
-                          })
-                        }
-                      />
-                    </label>
                   </div>
-                  {profile.issues.map((s) => (
-                    <p className="review-note" key={s}>
-                      {s}
-                    </p>
-                  ))}
-                </section>
-                <section className="card">
-                  <h3>Remaining Gen Ed courses</h3>
-                  <p className="muted">
-                    Counts already account for courses in progress. Adjust these
-                    to match the audit.
-                  </p>
-                  <div className="gened-grid">
-                    {Object.entries(genedNames).map(([code, name]) => (
-                      <label key={code}>
-                        <span>
-                          {name}
-                          <small>{code}</small>
-                        </span>
+                  <details className="audit-details">
+                    <summary>Audit details</summary>
+                    <div className="form-grid">
+                      {(
+                        [
+                          ["resident_credits", "Residence credits"],
+                          ["upper_credits", "Upper-level credits"],
+                          ["major_upper_credits", "Major upper-level credits"],
+                        ] as const
+                      ).map(([key, label]) => (
+                        <label key={key}>
+                          {label}
+                          <input
+                            type="number"
+                            step="0.1"
+                            min="0"
+                            value={profile[key]}
+                            onChange={(e) =>
+                              changeProfile({
+                                ...profile,
+                                [key]: Number(e.target.value),
+                              })
+                            }
+                          />
+                        </label>
+                      ))}
+                      <label>
+                        Program
                         <input
-                          aria-label={`${name} remaining`}
-                          type="number"
-                          min="0"
-                          max="2"
-                          value={profile.gened_remaining[code] ?? 0}
+                          value={profile.program}
                           onChange={(e) =>
                             changeProfile({
                               ...profile,
-                              gened_remaining: {
-                                ...profile.gened_remaining,
-                                [code]: Number(e.target.value),
-                              },
+                              program: e.target.value,
                             })
                           }
                         />
                       </label>
+                      <label>
+                        Catalog year
+                        <input
+                          value={profile.catalog_year}
+                          onChange={(e) =>
+                            changeProfile({
+                              ...profile,
+                              catalog_year: e.target.value,
+                            })
+                          }
+                        />
+                      </label>
+                    </div>
+                  </details>
+                  {profile.issues
+                    .filter(
+                      (issue) =>
+                        !issue.startsWith("Confirm Gen Ed remaining counts") &&
+                        !issue.startsWith("Synthetic example:"),
+                    )
+                    .map((issue) => (
+                      <p className="review-note" key={issue}>
+                        {issue}
+                      </p>
                     ))}
-                  </div>
                 </section>
                 <section className="card">
                   <div className="card-heading">
-                    <h3>Course history</h3>
+                    <h3>
+                      Gen Eds
+                      {remainingGeneds ? ` · ${remainingGeneds} remaining` : ""}
+                    </h3>
+                    <button
+                      className="text-button"
+                      aria-pressed={allGeneds}
+                      onClick={() => setAllGeneds((v) => !v)}
+                    >
+                      {allGeneds ? "Remaining" : "Show all"}
+                    </button>
+                  </div>
+                  {!remainingGeneds && !allGeneds && (
+                    <span className="muted">Complete</span>
+                  )}
+                  <div className="gened-grid">
+                    {Object.entries(genedNames)
+                      .filter(
+                        ([code]) =>
+                          allGeneds || (profile.gened_remaining[code] ?? 0) > 0,
+                      )
+                      .map(([code, name]) => (
+                        <label key={code}>
+                          <span>{name}</span>
+                          <input
+                            aria-label={`${name} remaining`}
+                            type="number"
+                            min="0"
+                            max="2"
+                            value={profile.gened_remaining[code] ?? 0}
+                            onChange={(e) =>
+                              changeProfile({
+                                ...profile,
+                                gened_remaining: {
+                                  ...profile.gened_remaining,
+                                  [code]: Number(e.target.value),
+                                },
+                              })
+                            }
+                          />
+                        </label>
+                      ))}
+                  </div>
+                </section>
+                <details className="card audit-history">
+                  <summary>Courses ({profile.attempts.length})</summary>
+                  <div className="card-heading">
                     <button
                       className="text-button"
                       onClick={() =>
@@ -767,25 +839,24 @@ function Workspace() {
                       </tbody>
                     </table>
                   </div>
-                </section>
+                </details>
                 <section className="card">
-                  <h3>Advisor notes and exceptions</h3>
-                  <p className="muted">
-                    Notes travel with your plan. They do not automatically waive
-                    solver constraints.
-                  </p>
-                  <textarea
-                    aria-label="Advisor notes"
-                    rows={3}
-                    placeholder="Record confirmed exceptions or questions for your advisor, one per line."
-                    value={profile.overrides.join("\n")}
-                    onChange={(e) =>
-                      changeProfile({
-                        ...profile,
-                        overrides: e.target.value.split("\n"),
-                      })
-                    }
-                  />
+                  <details className="audit-notes">
+                    <summary>Notes</summary>
+                    <textarea
+                      aria-label="Advisor notes"
+                      rows={3}
+                      placeholder="Advisor notes"
+                      title="Notes do not change academic requirements"
+                      value={profile.overrides.join("\n")}
+                      onChange={(e) =>
+                        changeProfile({
+                          ...profile,
+                          overrides: e.target.value.split("\n"),
+                        })
+                      }
+                    />
+                  </details>
                   <label className="check-label">
                     <input
                       type="checkbox"
@@ -794,15 +865,14 @@ function Workspace() {
                         setProfile({ ...profile, reviewed: e.target.checked })
                       }
                     />
-                    I’ve reviewed the imported information and remaining
-                    requirements.
+                    I’ve checked my audit
                   </label>
                   <button
                     className="button primary"
                     disabled={!profile.reviewed}
                     onClick={() => setTab("plan")}
                   >
-                    Set my planning goals <ArrowRight size={16} />
+                    Continue <ArrowRight size={16} />
                   </button>
                 </section>
               </>
@@ -812,7 +882,7 @@ function Workspace() {
               <div className="planning-layout">
                 <section className="card preferences">
                   <div className="card-heading">
-                    <h3>Planning goals</h3>
+                    <h3>Goals</h3>
                     <Settings2 size={17} />
                   </div>
                   <label>
@@ -829,14 +899,14 @@ function Workspace() {
                     </select>
                   </label>
                   <label>
-                    Graduation goal
+                    Graduate by
                     <select
                       value={prefs.target_term ?? ""}
                       onChange={(e) =>
                         preference("target_term", e.target.value || null)
                       }
                     >
-                      <option value="">Earliest feasible graduation</option>
+                      <option value="">Earliest available</option>
                       {nextTerms
                         .filter((t) => t >= prefs.start_term)
                         .map((t) => (
@@ -873,7 +943,7 @@ function Workspace() {
                     </label>
                   </div>
                   <label>
-                    Concentration discipline
+                    Concentration
                     <select
                       value={prefs.concentration}
                       onChange={(e) =>
@@ -885,12 +955,9 @@ function Workspace() {
                       ))}
                     </select>
                   </label>
-                  <p className="small muted">
-                    12 upper-level credits, subject to advisor confirmation.
-                    Courses and prerequisites vary by discipline.
-                  </p>
+
                   <label>
-                    Subjects you’re interested in
+                    Interests
                     <input
                       placeholder="e.g. history, design, security"
                       value={prefs.interests.join(",")}
@@ -940,9 +1007,8 @@ function Workspace() {
                   )}
                 </section>
                 <div className="plan-main">
-                  <section className="card">
+                  <section className="card course-choices">
                     <div className="card-heading">
-                      <h3>Course choices</h3>
                       <button
                         className="text-button"
                         onClick={() => {
@@ -988,7 +1054,6 @@ function Workspace() {
                     <section className="card empty">
                       <Flag size={32} />
                       <h3>No plan yet</h3>
-                      <p>Review your audit and choose your planning goals.</p>
                     </section>
                   ) : (
                     <>
@@ -996,11 +1061,11 @@ function Workspace() {
                         <div>
                           <h3>
                             {result.plans.length
-                              ? `${result.plans.length} paths to explore`
+                              ? "Plans"
                               : result.status === "timeout"
-                                ? "More search needed"
+                                ? "Search timed out"
                                 : result.status === "needs_review"
-                                  ? "A few details need review"
+                                  ? "Review needed"
                                   : "No plan within these constraints"}
                           </h3>
                         </div>
@@ -1015,13 +1080,13 @@ function Workspace() {
                           >
                             {result.plans.map((_, i) => (
                               <option key={i} value={i}>
-                                Option {i + 1}
+                                Plan {i + 1}
                               </option>
                             ))}
                           </select>
                         )}
                       </div>
-                      {result.messages.length > 0 && (
+                      {!result.plans.length && result.messages.length > 0 && (
                         <div className="notice stack">
                           {result.messages.map((m, i) => (
                             <p key={i}>{m}</p>
@@ -1030,37 +1095,30 @@ function Workspace() {
                       )}
                       {plan && (
                         <>
-                          <div className="notice">
-                            <ShieldCheck size={18} />
-                            Conditional plan ·{" "}
-                            {stale
-                              ? "Inputs changed"
-                              : "Advisor and future-offering checks remain"}
-                          </div>
-                          {plan.semesters.map((s, i) => (
+                          {plan.semesters.map((s) => (
                             <section className="card semester" key={s.term}>
                               <div className="card-heading">
-                                <h3>
-                                  <span className="semester-number">
-                                    {String(i + 1).padStart(2, "0")}
-                                  </span>
-                                  {termLabel(s.term)}
-                                </h3>
+                                <h3>{termLabel(s.term)}</h3>
                                 <span className="tag">
-                                  {s.credits} CREDITS ·{" "}
+                                  {s.credits} credits
                                   {s.term === prefs.start_term
-                                    ? "PUBLISHED"
-                                    : "PROJECTED"}
+                                    ? ""
+                                    : " · Estimated"}
                                 </span>
                               </div>
                               {s.courses.map((c) => (
                                 <div className="planned-course" key={c}>
                                   <div>
-                                    <strong>{c}</strong>
+                                    <button
+                                      className="course-name"
+                                      onClick={() => setDetailCourse(c)}
+                                    >
+                                      {c}
+                                    </button>
                                     <span>
                                       {courses.find((v) => v.id === c)?.title ??
                                         result?.course_titles?.[c] ??
-                                        "See Testudo for course details"}
+                                        ""}
                                     </span>
                                     <CourseBadges
                                       course={c}
@@ -1085,8 +1143,8 @@ function Workspace() {
                               ))}
                             </section>
                           ))}
-                          <section className="card">
-                            <h3>What this plan covers</h3>
+                          <details className="card plan-coverage">
+                            <summary>Requirements</summary>
                             <div className="coverage">
                               {Object.entries(plan.coverage).map(
                                 ([name, ids]) =>
@@ -1101,15 +1159,15 @@ function Workspace() {
                                   ),
                               )}
                             </div>
-                          </section>
+                          </details>
                           <details className="card">
-                            <summary>
-                              Assumptions & items to confirm{" "}
-                              <ChevronDown size={16} />
-                            </summary>
+                            <summary>Plan checks</summary>
                             <ul className="conditions">
                               {plan.conditions.map((c, i) => (
                                 <li key={i}>{c}</li>
+                              ))}
+                              {result.messages.map((m, i) => (
+                                <li key={`message-${i}`}>{m}</li>
                               ))}
                             </ul>
                           </details>
@@ -1117,7 +1175,7 @@ function Workspace() {
                             className="button primary"
                             onClick={() => setTab("schedule")}
                           >
-                            Explore weekly schedules <ArrowRight size={16} />
+                            View schedule <ArrowRight size={16} />
                           </button>
                         </>
                       )}
@@ -1129,116 +1187,117 @@ function Workspace() {
           )}
           {tab === "schedule" && (
             <>
-              {result && (
-                <ScheduleComparison
-                  plans={result.plans}
-                  selectedPlan={planIndex}
-                  selectedSchedule={scheduleIndex}
-                  onSelect={(p, s) => {
-                    setPlanIndex(p);
-                    setScheduleIndex(s);
-                  }}
-                />
-              )}
-              <section className="card">
-                <div className="card-heading">
-                  <h3>When are you unavailable?</h3>
-                  <label className="check-label">
-                    <input
-                      type="checkbox"
-                      checked={prefs.allow_full}
-                      onChange={(e) =>
-                        preference("allow_full", e.target.checked)
-                      }
-                    />
-                    Include full / waitlisted sections
-                  </label>
-                </div>
-                <div className="block-controls">
-                  <label>
-                    Days
-                    <select
-                      value={blockedDay}
-                      onChange={(e) => setBlockedDay(e.target.value)}
-                    >
-                      {["M", "Tu", "W", "Th", "F", "MWF", "TuTh"].map((d) => (
-                        <option key={d}>{d}</option>
-                      ))}
-                    </select>
-                  </label>
-                  <label>
-                    From
-                    <input
-                      type="time"
-                      value={blockedStart}
-                      onChange={(e) => setBlockedStart(e.target.value)}
-                    />
-                  </label>
-                  <label>
-                    Until
-                    <input
-                      type="time"
-                      value={blockedEnd}
-                      onChange={(e) => setBlockedEnd(e.target.value)}
-                    />
-                  </label>
-                  <button
-                    className="button secondary"
-                    onClick={() => {
-                      if (minutes(blockedEnd) <= minutes(blockedStart)) {
-                        setError("End time must follow start time.");
-                        return;
-                      }
-                      preference("blocked", [
-                        ...prefs.blocked,
-                        {
-                          days: blockedDay,
-                          start: minutes(blockedStart),
-                          end: minutes(blockedEnd),
-                          location: "",
-                        },
-                      ]);
+              <div className="schedule-tools">
+                {result && (
+                  <ScheduleComparison
+                    plans={result.plans}
+                    selectedPlan={planIndex}
+                    selectedSchedule={scheduleIndex}
+                    onSelect={(p, s) => {
+                      setPlanIndex(p);
+                      setScheduleIndex(s);
                     }}
-                  >
-                    <Plus size={16} />
-                    Block time
-                  </button>
-                </div>
-                <div className="chips">
-                  {prefs.blocked.map((m, i) => (
+                  />
+                )}
+                <details className="card availability">
+                  <summary>Availability</summary>
+                  <div className="card-heading">
+                    <label className="check-label">
+                      <input
+                        type="checkbox"
+                        checked={prefs.allow_full}
+                        onChange={(e) =>
+                          preference("allow_full", e.target.checked)
+                        }
+                      />
+                      Include full sections
+                    </label>
+                  </div>
+                  <div className="block-controls">
+                    <label>
+                      Days
+                      <select
+                        value={blockedDay}
+                        onChange={(e) => setBlockedDay(e.target.value)}
+                      >
+                        {["M", "Tu", "W", "Th", "F", "MWF", "TuTh"].map((d) => (
+                          <option key={d}>{d}</option>
+                        ))}
+                      </select>
+                    </label>
+                    <label>
+                      From
+                      <input
+                        type="time"
+                        value={blockedStart}
+                        onChange={(e) => setBlockedStart(e.target.value)}
+                      />
+                    </label>
+                    <label>
+                      Until
+                      <input
+                        type="time"
+                        value={blockedEnd}
+                        onChange={(e) => setBlockedEnd(e.target.value)}
+                      />
+                    </label>
                     <button
-                      key={i}
-                      className="chip"
-                      onClick={() =>
-                        preference(
-                          "blocked",
-                          prefs.blocked.filter((_, j) => i !== j),
-                        )
-                      }
+                      className="button secondary"
+                      onClick={() => {
+                        if (minutes(blockedEnd) <= minutes(blockedStart)) {
+                          setError("End time must follow start time.");
+                          return;
+                        }
+                        preference("blocked", [
+                          ...prefs.blocked,
+                          {
+                            days: blockedDay,
+                            start: minutes(blockedStart),
+                            end: minutes(blockedEnd),
+                            location: "",
+                          },
+                        ]);
+                      }}
                     >
-                      {m.days} {time(m.start)}–{time(m.end)}
-                      <X size={13} />
+                      <Plus size={16} />
+                      Block time
                     </button>
-                  ))}
-                </div>
-                <button
-                  className="text-button"
-                  disabled={!!busy || !profile?.reviewed}
-                  onClick={run}
-                >
-                  Regenerate with these preferences <RefreshCw size={14} />
-                </button>
-              </section>
+                  </div>
+                  <div className="chips">
+                    {prefs.blocked.map((m, i) => (
+                      <button
+                        key={i}
+                        className="chip"
+                        onClick={() =>
+                          preference(
+                            "blocked",
+                            prefs.blocked.filter((_, j) => i !== j),
+                          )
+                        }
+                      >
+                        {m.days} {time(m.start)}–{time(m.end)}
+                        <X size={13} />
+                      </button>
+                    ))}
+                  </div>
+                  <button
+                    className="text-button"
+                    disabled={!!busy || !profile?.reviewed}
+                    onClick={run}
+                  >
+                    Apply <RefreshCw size={14} />
+                  </button>
+                </details>
+              </div>
               {!schedules.length ? (
                 <section className="card empty">
                   <CalendarDays size={34} />
                   <h3>No weekly schedule yet</h3>
-                  <p>Generate a graduation plan to see section schedules.</p>
                   <button
                     className="button secondary"
                     onClick={() => setTab("plan")}
                   >
-                    Go to graduation plan <ArrowRight size={15} />
+                    Generate a plan <ArrowRight size={15} />
                   </button>
                 </section>
               ) : (
@@ -1258,25 +1317,38 @@ function Workspace() {
                     </select>
                   </div>
                   <div className="calendar card">
-                    <div className="calendar-head">
+                    <div
+                      className="calendar-head"
+                      style={{
+                        gridTemplateColumns: `55px repeat(${calendarDays.length},1fr)`,
+                      }}
+                    >
                       <span />
-                      {[
-                        "Monday",
-                        "Tuesday",
-                        "Wednesday",
-                        "Thursday",
-                        "Friday",
-                      ].map((d) => (
-                        <strong key={d}>{d}</strong>
+                      {calendarDays.map(([day, label]) => (
+                        <strong key={day}>{label}</strong>
                       ))}
                     </div>
-                    <div className="calendar-body">
+                    <div
+                      className="calendar-body"
+                      style={{
+                        height: calendar.height,
+                        gridTemplateColumns: `55px repeat(${calendarDays.length},1fr)`,
+                        background: `repeating-linear-gradient(to bottom,transparent 0,transparent ${calendar.height / calendar.hours - 1}px,#e9ede3 ${calendar.height / calendar.hours - 1}px,#e9ede3 ${calendar.height / calendar.hours}px)`,
+                      }}
+                    >
                       <div className="time-axis">
-                        {Array.from({ length: 15 }, (_, i) => (
-                          <span key={i}>{time((i + 7) * 60)}</span>
+                        {Array.from({ length: calendar.hours }, (_, i) => (
+                          <span
+                            key={i}
+                            style={{
+                              top: (i * calendar.height) / calendar.hours + 4,
+                            }}
+                          >
+                            {time(calendar.start + i * 60)}
+                          </span>
                         ))}
                       </div>
-                      {["M", "Tu", "W", "Th", "F"].map((day) => (
+                      {calendarDays.map(([day]) => (
                         <div className="day-column" key={day}>
                           {schedule.flatMap((s, i) =>
                             s.meetings
@@ -1286,8 +1358,8 @@ function Workspace() {
                                   key={`${s.course}-${j}`}
                                   className={`calendar-event color-${i % 5}`}
                                   style={{
-                                    top: `${((m.start - 420) / 900) * 100}%`,
-                                    height: `${((m.end - m.start) / 900) * 100}%`,
+                                    top: `${((m.start - calendar.start) / (calendar.end - calendar.start)) * 100}%`,
+                                    height: `${((m.end - m.start) / (calendar.end - calendar.start)) * 100}%`,
                                   }}
                                 >
                                   <strong>{s.course}</strong>
@@ -1302,66 +1374,82 @@ function Workspace() {
                       ))}
                     </div>
                   </div>
-                  <div className="section-list">
-                    {schedule.map((s) => (
-                      <section className="card" key={s.course}>
-                        <div className="card-heading">
-                          <h3>
-                            {s.course}
-                            <span className="muted"> · {s.id}</span>
-                          </h3>
-                          <span className="tag">
-                            {s.open_seats === null
-                              ? "SEATS UNKNOWN"
-                              : `${s.open_seats} OPEN`}
-                          </span>
-                        </div>
-                        <p>{s.instructors || "Instructor TBA"}</p>
-                        <CourseBadges
-                          course={s.course}
-                          names={instructorNames(s)}
-                          onOpen={() => setDetailCourse(s.course)}
-                        />
-                        <button
-                          className="text-button"
-                          onClick={() => setDetailCourse(s.course)}
-                        >
-                          Compare sections & reviews <ArrowUpRight size={13} />
-                        </button>
-                        {s.arranged && (
-                          <p className="review-note">
-                            Arranged or TBA meetings need manual conflict
-                            checks.
-                          </p>
-                        )}
-                        <p className="small muted">
-                          Fetched {new Date(s.fetched_at).toLocaleString()}.
-                          Seats may change.
-                        </p>
-                        <div className="card-heading">
-                          <a
-                            className="text-button"
-                            target="_blank"
-                            rel="noreferrer"
-                            href={`https://app.testudo.umd.edu/soc/${prefs.start_term}/${s.course.replace(/\d.*$/, "")}/${s.course}`}
-                          >
-                            View on Testudo <ArrowUpRight size={14} />
-                          </a>
-                          <button
-                            className="text-button"
-                            onClick={() =>
-                              preference("pinned_sections", {
-                                ...prefs.pinned_sections,
-                                [s.course]: s.id,
-                              })
-                            }
-                          >
-                            Pin section
-                          </button>
-                        </div>
-                      </section>
-                    ))}
-                  </div>
+                  <section className="card schedule-courses">
+                    <div className="table-wrap">
+                      <table>
+                        <thead>
+                          <tr>
+                            <th>Course</th>
+                            <th>Professor</th>
+                            <th>GPA</th>
+                            <th>Open seats</th>
+                            <th />
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {schedule.map((section) => (
+                            <tr key={section.course}>
+                              <td>
+                                <button
+                                  className="course-name"
+                                  onClick={() =>
+                                    setDetailCourse(section.course)
+                                  }
+                                >
+                                  {section.course}
+                                </button>
+                                <small>{section.id}</small>
+                              </td>
+                              <td>
+                                {instructorNames(section).length
+                                  ? instructorNames(section).map((name) => (
+                                      <div
+                                        className="instructor-cell"
+                                        key={name}
+                                      >
+                                        <span>{name}</span>
+                                        <ProfessorRating
+                                          course={section.course}
+                                          name={name}
+                                        />
+                                      </div>
+                                    ))
+                                  : "TBA"}
+                              </td>
+                              <td>
+                                <button
+                                  className="text-button"
+                                  onClick={() =>
+                                    setDetailCourse(section.course)
+                                  }
+                                  aria-label={`Compare ${section.course} grades and professors`}
+                                >
+                                  {courseInsights[
+                                    section.course
+                                  ]?.average_gpa?.toFixed(2) ?? "—"}
+                                </button>
+                              </td>
+                              <td
+                                title={`Updated ${new Date(section.fetched_at).toLocaleString()}`}
+                              >
+                                {section.open_seats ?? "—"}
+                              </td>
+                              <td>
+                                <button
+                                  className="text-button"
+                                  onClick={() =>
+                                    setDetailCourse(section.course)
+                                  }
+                                >
+                                  Sections
+                                </button>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </section>
                 </>
               )}
               {Object.entries(prefs.pinned_sections).map(([c, s]) => (
@@ -1380,33 +1468,36 @@ function Workspace() {
             </>
           )}
           <footer>
-            <div>
-              <button onClick={() => jsonInput.current?.click()}>
-                Import backup
-              </button>
-              <button onClick={() => exportWorkspace(profile, prefs, result)}>
-                <Download size={13} />
-                Export backup
-              </button>
-              <button onClick={() => window.print()}>Print plan</button>
-              <button
-                onClick={async () => {
-                  if (
-                    window.confirm(
-                      "Delete this device’s saved profile and preferences?",
-                    )
-                  ) {
-                    await forget();
-                    setProfile(null);
-                    setPrefs(defaultPreferences);
-                    setResult(null);
-                  }
-                }}
-              >
-                <Trash2 size={13} />
-                Delete data
-              </button>
-            </div>
+            <details className="workspace-tools">
+              <summary>More</summary>
+              <div>
+                <button onClick={() => jsonInput.current?.click()}>
+                  Import backup
+                </button>
+                <button onClick={() => exportWorkspace(profile, prefs, result)}>
+                  <Download size={13} />
+                  Export backup
+                </button>
+                <button onClick={() => window.print()}>Print plan</button>
+                <button
+                  onClick={async () => {
+                    if (
+                      window.confirm(
+                        "Delete this device’s saved profile and preferences?",
+                      )
+                    ) {
+                      await forget();
+                      setProfile(null);
+                      setPrefs(defaultPreferences);
+                      setResult(null);
+                    }
+                  }}
+                >
+                  <Trash2 size={13} />
+                  Delete data
+                </button>
+              </div>
+            </details>
           </footer>
         </div>
       </main>
@@ -1420,9 +1511,6 @@ function Workspace() {
           >
             <div className="card-heading">
               <div>
-                <div className="eyebrow">
-                  PUBLISHED OFFERINGS · {termLabel(prefs.start_term)}
-                </div>
                 <h2>Courses</h2>
               </div>
               <button
@@ -1436,7 +1524,7 @@ function Workspace() {
               <Search size={18} />
               <input
                 aria-label="Search courses"
-                placeholder="Search course code, title, or Gen Ed…"
+                placeholder="Search courses"
                 value={search}
                 onChange={(e) => {
                   setSearch(e.target.value);
@@ -1452,7 +1540,7 @@ function Workspace() {
               </button>
             </div>
             <label className="pin-select">
-              Pin selected courses to
+              Semester
               <select
                 value={pinTerm}
                 onChange={(e) => setPinTerm(e.target.value)}
@@ -1486,18 +1574,21 @@ function Workspace() {
                 value={courseSort}
                 onChange={(e) => setCourseSort(e.target.value)}
               >
-                <option value="original">Course order</option>
-                <option value="gpa">Higher GPA · shown courses</option>
+                <option value="original">Default</option>
+                <option value="gpa">GPA</option>
               </select>
             </div>
             <div className="course-results">
               {displayedCourses.map((c) => (
                 <article key={c.id}>
                   <div>
-                    <strong>
+                    <button
+                      className="course-name"
+                      onClick={() => setDetailCourse(c.id)}
+                    >
                       {c.id}
-                      <span className="muted"> · {c.credits} credits</span>
-                    </strong>
+                    </button>
+                    <span className="muted"> · {c.credits} credits</span>
                     <h4>{c.title}</h4>
                     <CourseBadges
                       course={c.id}
@@ -1510,14 +1601,6 @@ function Workspace() {
                         </span>
                       ))}
                     </div>
-                    <a
-                      href={c.source}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="small text-button"
-                    >
-                      Course details <ArrowUpRight size={12} />
-                    </a>
                   </div>
                   <div className="course-actions">
                     <button
