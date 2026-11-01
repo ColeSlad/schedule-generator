@@ -924,26 +924,18 @@ function Workspace() {
                   <div className="form-grid compact">
                     <label>
                       Min. credits
-                      <input
-                        type="number"
-                        min="0"
-                        max="24"
+                      <CreditInput
+                        min={0}
                         value={prefs.min_credits}
-                        onChange={(e) =>
-                          preference("min_credits", Number(e.target.value))
-                        }
+                        onChange={(value) => preference("min_credits", value)}
                       />
                     </label>
                     <label>
                       Max. credits
-                      <input
-                        type="number"
-                        min="1"
-                        max="24"
+                      <CreditInput
+                        min={1}
                         value={prefs.max_credits}
-                        onChange={(e) =>
-                          preference("max_credits", Number(e.target.value))
-                        }
+                        onChange={(value) => preference("max_credits", value)}
                       />
                     </label>
                   </div>
@@ -1674,6 +1666,34 @@ function Workspace() {
         />
       )}
     </div>
+  );
+}
+function CreditInput({
+  value,
+  min,
+  onChange,
+}: {
+  value: number;
+  min: number;
+  onChange: (value: number) => void;
+}) {
+  const [draft, setDraft] = useState<string | null>(null);
+  return (
+    <input
+      type="number"
+      min={min}
+      max={24}
+      value={draft ?? value}
+      onChange={(e) => {
+        const text = e.target.value;
+        setDraft(text);
+        if (text !== "") onChange(Number(text));
+      }}
+      onBlur={() => {
+        if (draft === "" && min === 0) onChange(0);
+        setDraft(null);
+      }}
+    />
   );
 }
 function Stat({
