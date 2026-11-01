@@ -1,5 +1,6 @@
 import { expect, it } from "vitest";
 import {
+  calendarRange,
   scheduleMetrics,
   sortOptions,
   instructorNames,
@@ -118,4 +119,18 @@ it("sorts only existing options, keeps missing data last, and favors complete co
     0, 1, 2,
   ]);
   expect(rows[0].planIndex).toBe(0);
+});
+
+it("fits the calendar around early, late, and ordinary meetings", () => {
+  const ordinary = calendarRange([section("CMSC420", 600, 650)]);
+  expect(ordinary.start).toBe(540);
+  expect(ordinary.end).toBe(720);
+  expect(ordinary.height).toBeGreaterThanOrEqual(360);
+  const extended = calendarRange([
+    section("CMSC420", 360, 410),
+    section("CMSC430", 1380, 1430),
+  ]);
+  expect(extended.start).toBeLessThanOrEqual(360);
+  expect(extended.end).toBe(1440);
+  expect(calendarRange([]).hours).toBeGreaterThan(0);
 });

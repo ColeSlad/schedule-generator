@@ -108,3 +108,21 @@ export function sortOptions(options: ScheduleOption[], sort: ScheduleSort) {
     );
   });
 }
+
+export function calendarRange(sections: Section[]) {
+  const meetings = sections.flatMap((s) => s.meetings);
+  const start = meetings.length
+    ? Math.max(
+        0,
+        Math.floor(Math.min(...meetings.map((m) => m.start)) / 60) - 1,
+      ) * 60
+    : 480;
+  const end = meetings.length
+    ? Math.min(
+        1440,
+        (Math.ceil(Math.max(...meetings.map((m) => m.end)) / 60) + 1) * 60,
+      )
+    : 1080;
+  const hours = (end - start) / 60;
+  return { start, end, hours, height: Math.max(360, hours * 48) };
+}
