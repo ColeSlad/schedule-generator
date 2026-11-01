@@ -6,6 +6,7 @@ from fastapi import APIRouter, FastAPI, HTTPException, Query
 from fastapi.staticfiles import StaticFiles
 
 from .data import get_catalog, get_planning_catalog, get_sections, get_sections_many
+from .insights import InsightRequest, InsightResponse, get_insights
 from .models import PlanRequest, PlanResult, ValidateRequest
 from .planner import generate
 from .rules import RULES
@@ -35,6 +36,11 @@ def catalog(
         raise HTTPException(422, "Choose up to 8 department prefixes.")
     courses, warnings = get_catalog(term, parts)
     return {"courses": courses, "warnings": warnings}
+
+
+@router.post("/insights", response_model=InsightResponse)
+def insights(request: InsightRequest):
+    return get_insights(request)
 
 
 @router.get("/sections")

@@ -67,3 +67,9 @@ def test_partial_bulk_response_does_not_treat_missing_course_as_closed(monkeypat
     result, warnings = data.get_sections_many("202701", ["CMSC420", "CMSC430"])
     assert result["CMSC420"] == [] and "CMSC430" not in result
     assert any("CMSC430" in warning for warning in warnings)
+
+
+def test_multiple_instructors_are_extracted_as_separate_names():
+    html = """<div class="section"><span class="section-id">0101</span><span class="section-instructors"><span class="section-instructor">Synthetic One</span><span class="section-instructor">Synthetic Two</span></span></div>"""
+    section = parse_sections(html, "CMSC420", "synthetic", "2026-11-01")[0]
+    assert section.instructor_names == ["Synthetic One", "Synthetic Two"]

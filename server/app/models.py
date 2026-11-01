@@ -108,6 +108,7 @@ class Section(BaseModel):
     course: str
     id: str
     instructors: str = ""
+    instructor_names: list[str] = Field(default_factory=list)
     open_seats: int | None = None
     meetings: list[Meeting] = Field(default_factory=list)
     arranged: bool = False

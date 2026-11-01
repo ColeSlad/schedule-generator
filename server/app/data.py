@@ -203,6 +203,13 @@ def parse_sections(html, course, url, stamp):
                 course=course,
                 id=code,
                 instructors=value(node, ".section-instructors"),
+                instructor_names=list(
+                    dict.fromkeys(
+                        n.get_text(" ", strip=True)
+                        for n in node.select(".section-instructor")
+                        if n.get_text(" ", strip=True)
+                    )
+                ),
                 open_seats=int(seats) if seats.isdigit() else None,
                 meetings=meetings,
                 arranged=arranged,
