@@ -345,10 +345,23 @@ def build_model(
     )
     gaps = sum(active)
     # Bounded lower-priority terms make objectives lexicographic for this candidate set.
-    secondary = (
-        extra * 1000 + sum((i + 1) * loads[i] for i in range(len(terms))) * 2 - interest * 10 + gaps
-    )
-    m.minimize((end * 10_000_000 if not p.target_term else 0) + secondary)
+    lower = sum((i + 1) * loads[i] for i in range(len(terms))) * 2 - interest * 10 + gaps
+    credit_weight = 1000
+    finish_weight = 10_000_000
+    format_bonus = 0
+    if p.prefer_online and selection is not None:
+        # Earliest graduation, then total credits, then confirmed online/async
+        # sections, then existing timing/interest preferences. Bound each tier
+        # so extra courses or a later graduation cannot buy a format bonus.
+        lower_span = (
+            p.max_credits * len(terms) * (len(terms) + 1) + 10 * len(available) + len(terms)
+        )
+        format_weight = lower_span + 1
+        credit_weight = (3 * len(selection.options) + 1) * format_weight
+        finish_weight = (len(terms) * p.max_credits + 1) * credit_weight
+        format_bonus = selection.delivery_score() * format_weight
+    secondary = extra * credit_weight - format_bonus + lower
+    m.minimize((end * finish_weight if not p.target_term else 0) + secondary)
     return m, x, available, allocations, gened_alloc, ulc, labels, selection
 
 

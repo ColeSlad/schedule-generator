@@ -79,6 +79,7 @@ class Preferences(BaseModel):
     pinned_sections: dict[str, str] = Field(default_factory=dict)
     blocked: list[Meeting] = Field(default_factory=list, max_length=30)
     allow_full: bool = False
+    prefer_online: bool = False
 
     @model_validator(mode="after")
     def limits(self):
@@ -112,6 +113,8 @@ class Section(BaseModel):
     open_seats: int | None = None
     meetings: list[Meeting] = Field(default_factory=list)
     arranged: bool = False
+    delivery: Literal["in_person", "online", "blended", "unknown"] = "unknown"
+    asynchronous: bool = False
     source: str
     fetched_at: str
 

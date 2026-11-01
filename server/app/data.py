@@ -177,6 +177,19 @@ def parse_sections(html, course, url, stamp):
             continue
         meetings = []
         arranged = False
+        delivery = next(
+            (
+                mode
+                for css, mode in [
+                    ("delivery-online", "online"),
+                    ("delivery-blended", "blended"),
+                    ("delivery-f2f", "in_person"),
+                ]
+                if css in node.get("class", [])
+            ),
+            "unknown",
+        )
+        async_component = False
         for row in node.select(".class-days-container .row"):
             days = value(row, ".section-days")
             start = value(row, ".class-start-time")
@@ -193,9 +206,12 @@ def parse_sections(html, course, url, stamp):
                     )
                 except ValueError:
                     arranged = True
+            elif delivery in ["online", "blended"] and row.select_one(".elms-class-message"):
+                async_component = True
             else:
                 arranged = True
-        if not meetings:
+        asynchronous = delivery == "online" and async_component and not meetings and not arranged
+        if not meetings and not asynchronous:
             arranged = True
         seats = value(node, ".open-seats-count")
         sections.append(
@@ -213,6 +229,8 @@ def parse_sections(html, course, url, stamp):
                 open_seats=int(seats) if seats.isdigit() else None,
                 meetings=meetings,
                 arranged=arranged,
+                delivery=delivery,
+                asynchronous=asynchronous,
                 source=url,
                 fetched_at=stamp,
             )

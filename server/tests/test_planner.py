@@ -380,3 +380,66 @@ def test_closed_pinned_section_is_explained_without_relaxing_the_pin():
     result = generate(profile, prefs, courses, section_options=options, limit=1)
     assert result.status == "infeasible" and not result.plans
     assert any("CMSC411" in m and "open seats" in m for m in result.messages)
+
+
+def test_online_preference_ranks_async_then_online_and_preserves_section_pins():
+    campus = section("CMSC420", "0101", 600)
+    campus.delivery = "in_person"
+    online = section("CMSC420", "0201", 600)
+    online.delivery = "online"
+    asynchronous = section("CMSC420", "0301", 600)
+    asynchronous.delivery = "online"
+    asynchronous.asynchronous = True
+    asynchronous.meetings = []
+    prefs = Preferences(prefer_online=True)
+    options = {"CMSC420": [campus, online, asynchronous]}
+    results, notes = schedules(["CMSC420"], options, prefs)
+    assert [r[0].id for r in results] == ["0301", "0201", "0101"]
+    assert not notes
+    prefs.pinned_sections = {"CMSC420": "0101"}
+    assert schedules(["CMSC420"], options, prefs)[0][0][0].id == "0101"
+
+
+def test_online_preference_does_not_bypass_seats_or_scheduled_online_conflicts():
+    online = section("CMSC420", "0101", 600)
+    online.delivery = "online"
+    asynchronous = section("CMSC420", "0201", 600, seats=0)
+    asynchronous.delivery = "online"
+    asynchronous.asynchronous = True
+    asynchronous.meetings = []
+    campus = section("CMSC420", "0301", 720)
+    prefs = Preferences(prefer_online=True, blocked=[Meeting(days="MWF", start=600, end=650)])
+    options = {"CMSC420": [online, asynchronous, campus]}
+    assert schedules(["CMSC420"], options, prefs)[0][0][0].id == "0301"
+
+
+def test_online_preference_affects_course_choice_without_adding_extra_credits():
+    profile, prefs, courses = fixture()
+    prefs.prefer_online = True
+    courses.append(course("HIST304"))
+    options = integrated_options(courses)
+    options["HIST304"][0].delivery = "online"
+    options["HIST304"][0].asynchronous = True
+    options["HIST304"][0].meetings = []
+    result = generate(profile, prefs, courses, section_options=options, limit=1)
+    assert result.plans
+    plan = result.plans[0]
+    assert "HIST304" in plan.semesters[0].courses
+    assert sum(s.credits for s in plan.semesters) == 33
+
+
+def test_online_preference_does_not_add_unneeded_courses_or_delay_graduation():
+    profile, prefs, courses = fixture()
+    prefs.prefer_online = True
+    prefs.target_term = None
+    courses.append(course("ENGL300"))
+    options = integrated_options(courses)
+    options["ENGL300"][0].delivery = "online"
+    options["ENGL300"][0].asynchronous = True
+    options["ENGL300"][0].meetings = []
+    result = generate(profile, prefs, courses, section_options=options, limit=1)
+    assert result.plans
+    plan = result.plans[0]
+    assert plan.semesters[-1].term == "202708"
+    assert sum(s.credits for s in plan.semesters) == 33
+    assert all("ENGL300" not in s.courses for s in plan.semesters)

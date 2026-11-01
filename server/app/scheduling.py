@@ -15,6 +15,14 @@ def conflicts(a, b):
     )
 
 
+def delivery_score(section):
+    if section.arranged:
+        return 0
+    if section.delivery == "online":
+        return 3 if section.asynchronous else 2
+    return 1 if section.delivery == "blended" else 0
+
+
 def matching_sections(course, sections, preferences):
     """Apply only explicit seat, section-pin and availability constraints."""
     if not sections:
@@ -43,6 +51,12 @@ class SectionSelection:
     options: dict = field(default_factory=dict)
     variables: dict = field(default_factory=dict)
     reasons: dict = field(default_factory=dict)
+
+    def delivery_score(self):
+        return sum(
+            delivery_score(self.options[c][i]) * variable
+            for (c, i), variable in self.variables.items()
+        )
 
     def selected(self, solver):
         return [
@@ -99,11 +113,13 @@ def schedules(course_ids, sections, p, limit=3):
     selection = add_section_constraints(model, dict.fromkeys(course_ids, 1), sections, p)
     if selection.reasons:
         return [], list(selection.reasons.values())
+    # Unresolved meeting times stay lower priority than confirmed formats.
     model.minimize(
         sum(
             (10000 if selection.options[c][i].arranged else 0) * variable
             for (c, i), variable in selection.variables.items()
         )
+        - (selection.delivery_score() if p.prefer_online else 0)
     )
     results = []
     notes = []

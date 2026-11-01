@@ -1,3 +1,5 @@
+import pytest
+
 from server.app.data import parse_catalog, parse_sections
 
 
@@ -73,3 +75,33 @@ def test_multiple_instructors_are_extracted_as_separate_names():
     html = """<div class="section"><span class="section-id">0101</span><span class="section-instructors"><span class="section-instructor">Synthetic One</span><span class="section-instructor">Synthetic Two</span></span></div>"""
     section = parse_sections(html, "CMSC420", "synthetic", "2026-11-01")[0]
     assert section.instructor_names == ["Synthetic One", "Synthetic Two"]
+
+
+@pytest.mark.parametrize(
+    ("delivery", "rows", "expected_delivery", "asynchronous", "arranged", "meetings"),
+    [
+        ("delivery-online", "async", "online", True, False, 0),
+        ("delivery-online", "timed", "online", False, False, 1),
+        ("delivery-online", "async timed", "online", False, False, 1),
+        ("delivery-blended", "async timed", "blended", False, False, 1),
+        ("delivery-online", "unknown", "online", False, True, 0),
+        ("", "async", "unknown", False, True, 0),
+    ],
+)
+def test_delivery_markers_distinguish_async_from_scheduled_and_unresolved_meetings(
+    delivery, rows, expected_delivery, asynchronous, arranged, meetings
+):
+    parts = {
+        "async": '<span class="elms-class-message">Class time/details on ELMS</span><span class="class-room">ONLINE</span>',
+        "timed": '<span class="section-days">TuTh</span><span class="class-start-time">10:00am</span><span class="class-end-time">10:50am</span>',
+        "unknown": "TBA",
+    }
+    html = f'<div class="section {delivery}"><span class="section-id">0101</span><div class="class-days-container">'
+    html += "".join(f'<div class="row">{parts[row]}</div>' for row in rows.split()) + "</div></div>"
+    section = parse_sections(html, "BMIN345", "synthetic", "2026-11-01")[0]
+    assert (section.delivery, section.asynchronous, section.arranged, len(section.meetings)) == (
+        expected_delivery,
+        asynchronous,
+        arranged,
+        meetings,
+    )
