@@ -1,20 +1,35 @@
 import type { Profile, Preferences, PlanResult, Course, Plan } from "./types";
 async function request<T>(path: string, body?: unknown): Promise<T> {
-  const response = await fetch(`/api${path}`, {
-    method: body ? "POST" : "GET",
-    headers: body ? { "Content-Type": "application/json" } : {},
-    body: body ? JSON.stringify(body) : undefined,
-    signal: AbortSignal.timeout(150000),
-  });
-  if (!response.ok) {
-    const data = await response
-      .json()
-      .catch(() => ({ detail: response.statusText }));
+  let response: Response;
+  try {
+    response = await fetch(`/api${path}`, {
+      method: body ? "POST" : "GET",
+      headers: body ? { "Content-Type": "application/json" } : {},
+      body: body ? JSON.stringify(body) : undefined,
+      signal: AbortSignal.timeout(150000),
+    });
+  } catch (error) {
+    if (
+      error instanceof Error &&
+      ["TimeoutError", "AbortError"].includes(error.name)
+    ) {
+      throw new Error(
+        "Planning took too long. Try a nearer graduation target or fewer pinned courses.",
+      );
+    }
     throw new Error(
-      typeof data.detail === "string"
-        ? data.detail
-        : "Check your profile, credit limits, and term selections.",
+      "Cannot reach the planning service. Restart npm run dev and try again.",
     );
+  }
+  if (!response.ok) {
+    const data = await response.json().catch(() => null);
+    if (typeof data?.detail === "string") throw new Error(data.detail);
+    if (response.status >= 500) {
+      throw new Error(
+        "The planning service is unavailable. Restart npm run dev and try again.",
+      );
+    }
+    throw new Error("Check your profile, credit limits, and term selections.");
   }
   return response.json();
 }
