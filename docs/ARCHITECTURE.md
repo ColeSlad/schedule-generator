@@ -6,8 +6,8 @@
 2. Students correct the academic profile and confirm it. IndexedDB stores only structured academic data and preferences, plus draft plan results.
 3. The frontend posts the reviewed profile to FastAPI. Pydantic validates requests; Zod validates imported backups. Neither backend request models nor persisted frontend profiles include names, IDs, or raw audit text.
 4. Source adapters fetch published term data, the two preceding regular semesters, and official-catalog descriptions of prerequisites and restrictions. Only public HTML enters SQLite.
-5. CP-SAT chooses course/semester variables and distinct requirement allocations. Assumption constraints support blocker explanations. A bounded earlier-horizon search precedes preference optimization; time-limited candidates are labeled accordingly.
-6. Each Testudo section is a bundle containing its linked meetings. A separate CP-SAT search chooses one bundle per course and rejects meeting/availability conflicts. Failed combinations feed exclusions back into graduation planning, bounded to four retries.
+5. CP-SAT chooses course/semester variables, distinct requirement allocations, and first-semester sections together. The initial feasibility search passes its solution forward as an optimization hint. A short-horizon timeout does not prevent searching later terms. Assumption-based diagnostics run separately, only after a proven infeasible result, with a bounded single-worker solver.
+6. Published sections are fetched in batches of up to 25 courses with at most four concurrent requests. Course containers are parsed separately so section bundles cannot leak between courses. Known-empty sections exclude a course from the first semester; missing source data remains unverified. Each bundle includes its linked meetings. Seat filters, availability blocks, section pins, and inter-course time clashes constrain course selection directly. An optional search adds weekly alternatives; its timeout cannot discard the valid assignment already found.
 7. Course moves call academic validation with fixed placements. Weekly sections are discarded after a move and refreshed by regeneration.
 
 ## Interfaces

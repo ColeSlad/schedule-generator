@@ -35,7 +35,7 @@ Open http://127.0.0.1:8011. The API serves `dist/` and supports the frontend's `
 - Browser PDF extraction, deduplicated course attempts, transfer/AP and in-progress credits, credit reconciliation, and editable import review.
 - CS area/elective allocation, prerequisite sequencing, concentration overlap/exclusions, residency/credit minimums, graduation targets, and semester credit limits.
 - Gen Ed discovery, interests, course pins/exclusions, course moves with academic revalidation, and section pins.
-- Linked lecture/lab/discussion meetings, blocked times, open-seat filters, and alternative weekly calendars.
+- Joint course-and-section search with linked lecture/lab/discussion meetings, blocked times, open-seat filters, and alternative weekly calendars.
 - IndexedDB saves, validated JSON backups including draft plans, printable views, and data deletion. Restored plans must be regenerated before use.
 
 ## Pilot boundaries
@@ -56,7 +56,7 @@ Search is bounded. Results distinguish review needs, conditional candidates, inf
 
 Original PDFs never leave the browser or enter IndexedDB. Stored profiles omit names, student IDs, and raw audit text. Reviewed coursework and preferences go to the local solver; student data is not persisted or logged by the backend. JSON exports contain academic data, so keep them private.
 
-Public data comes from [Testudo](https://app.testudo.umd.edu/soc/), the [UMD catalog](https://academiccatalog.umd.edu/undergraduate/approved-courses/), and [CS department rules](https://undergrad.cs.umd.edu/degree-requirements-cs-major). Offerings/catalog pages cache for 24 hours, sections for five minutes, with stale-cache warnings on failure. Two preceding regular terms provide historical candidates. `UMD_CACHE_PATH` overrides the default `/tmp/umd-planner-cache.sqlite` public-data cache.
+Public data comes from [Testudo](https://app.testudo.umd.edu/soc/), the [UMD catalog](https://academiccatalog.umd.edu/undergraduate/approved-courses/), and [CS department rules](https://undergrad.cs.umd.edu/degree-requirements-cs-major). Offerings/catalog pages cache for 24 hours, sections for five minutes, with stale-cache warnings on failure. Sections are fetched in bounded multi-course batches. Known missing seats or conflicts constrain next-semester course choices directly; failed section downloads remain unverified. Two preceding regular terms provide historical candidates. `UMD_CACHE_PATH` overrides the default `/tmp/umd-planner-cache.sqlite` public-data cache.
 
 No private audit, extracted student record, local database, or secrets belong in Git. Tests use synthetic fixtures. The supplied real audit was checked locally without committing its contents.
 
