@@ -1,8 +1,8 @@
 from fastapi.testclient import TestClient
-from test_planner import fixture
+from test_planner import course, fixture
 
 from server.app import main
-from server.app.models import Meeting, Section
+from server.app.models import Meeting, PlanRequest, Section
 
 client = TestClient(main.app)
 
@@ -50,6 +50,28 @@ def test_end_to_end_generate_validate_and_input_rejection(monkeypatch):
 
 def test_api_prefix_for_production():
     assert client.get("/api/health").status_code == 200
+
+
+def test_general_business_browsing_and_planning_load_both_departments(monkeypatch):
+    profile, prefs, _ = fixture()
+    prefs.concentration = "BMIN"
+    prefs.pinned = {"PSYC300": "202701"}
+    calls = []
+
+    def catalog(term, prefixes):
+        calls.append(prefixes)
+        return [course("BMIN345")], []
+
+    monkeypatch.setattr(main, "get_catalog", catalog)
+    monkeypatch.setattr(main, "get_planning_catalog", catalog)
+    response = client.get("/api/catalog?term=202701&concentration=BMIN")
+    assert response.status_code == 200
+    assert {"BMGT345", "BMGT340"} <= set(response.json()["courses"][0]["aliases"])
+    main.load(PlanRequest(profile=profile, preferences=prefs))
+    assert len(calls) == 2
+    assert all({"BMIN", "BMGT"} <= set(prefixes) and len(prefixes) <= 8 for prefixes in calls)
+    assert "PSYC" in calls[1]
+    assert client.get("/api/catalog?term=202701&concentration=../bad").status_code == 422
 
 
 def test_valid_schedule_survives_optional_alternative_search_timeout(monkeypatch):

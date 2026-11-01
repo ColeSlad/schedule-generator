@@ -1,6 +1,6 @@
 {
-  "id":"cs-general-2025-v2", "program":"07010", "catalog_year":"Fall 2025",
-  "sources":["https://undergrad.cs.umd.edu/degree-requirements-cs-major","https://undergrad.cs.umd.edu/upper-level-concentration","https://academiccatalog.umd.edu/undergraduate/registration-academic-requirements-regulations/degree-information/"],
+  "id":"cs-general-2025-v3", "program":"07010", "catalog_year":"Fall 2025",
+  "sources":["https://undergrad.cs.umd.edu/degree-requirements-cs-major","https://undergrad.cs.umd.edu/upper-level-concentration","https://academiccatalog.umd.edu/undergraduate/registration-academic-requirements-regulations/degree-information/","https://academiccatalog.umd.edu/undergraduate/colleges-schools/business/general-business-minor/","https://academiccatalog.umd.edu/undergraduate/approved-courses/bmin/"],
   "minimum_credits":120, "residence_credits":30, "upper_credits":15, "major_upper_credits":12,
   "required":["CMSC131","CMSC132","CMSC216","CMSC250","CMSC330","CMSC351","MATH140","MATH141"],
   "areas":{
@@ -11,12 +11,19 @@
     "Numerical analysis":["CMSC460","CMSC466"]
   },
   "electives":["CMSC320","CMSC335","CMSC401","CMSC425","CMSC437","CMSC475","CMSC477"],
-  "equivalents":{"CMSC456":["MATH456"],"CMSC460":["AMSC460"],"CMSC466":["AMSC466"]},
+  "equivalents":{
+    "CMSC456":["MATH456"],"CMSC460":["AMSC460"],"CMSC466":["AMSC466"],
+    "BMIN210":["BMGT210"],"BMIN305":["BMGT301"],
+    "BMIN345":["BMGT345","BMGT340"],"BMIN355":["BMGT355","BMGT350"],
+    "BMIN375":["BMGT375","BMGT372"],"BMIN395":["BMGT395","BMGT364"]
+  },
+  "concentration_departments":{"BMIN":["BMIN","BMGT"],"BMGT":["BMGT","BMIN"]},
+  "concentration_courses":{"BMIN":["BMIN345","BMIN355","BMIN375","BMIN395"]},
   "minimum_grade":"C-", "concentration_credits":12,
   "concentration_exclusions_checked":"2026-11-01",
   "concentration_excluded_courses":[
     "AMSC460","AMSC466","AOSC445","AOSC447","AREC380","BIOE442","BSCI411",
-    "BMGT300","BMGT301","BMGT301F","BMGT302","BMGT302F","BMGT347","BMGT400","BMGT401","BMGT402","BMGT403","BMGT404","BMGT408E","BMGT408C","BMGT431","BMGT408V",
+    "BMIN305","BMGT300","BMGT301","BMGT301F","BMGT302","BMGT302F","BMGT347","BMGT400","BMGT401","BMGT402","BMGT403","BMGT404","BMGT408E","BMGT408C","BMGT431","BMGT408V",
     "ECON414","ECON432","ECON433",
     "ENAE450","ENEE350","ENEE426","ENEE436","ENEE439M","ENEE446","ENEE447","ENEE456","ENEE457","ENEE459L","ENEE464","ENEE467","ENEE408I","ENME440","ENES396","ENGL381",
     "GEOG371","GEOG376","GEOG377","GEOG461","GEOG470","GEOG476","GEOG498I","GEOL377",

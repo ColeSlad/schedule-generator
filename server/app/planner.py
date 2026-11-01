@@ -5,7 +5,7 @@ import re
 from ortools.sat.python import cp_model
 
 from .models import Plan, PlanResult, Semester
-from .rules import RULES, canonical, passed, supported
+from .rules import RULES, canonical, concentration_course, passed, supported
 from .scheduling import add_section_constraints
 
 
@@ -45,11 +45,14 @@ def build_model(
             m.add_assumption(a)
             labels[a.index] = label
 
-    available = {c.id: c for c in courses if c.id not in passed(profile) and c.id not in p.excluded}
+    done = passed(profile)
+    available = {c.id: c for c in courses if canonical(c.id) not in done and c.id not in p.excluded}
     x = {(c, t): m.new_bool_var(f"{c}:{t}") for c in available for t in terms}
     chosen = {c: m.new_bool_var(c) for c in available}
-    done = passed(profile)
     existing = {canonical(a.course): a for a in profile.attempts if canonical(a.course) in done}
+    equivalents = {}
+    for c in available:
+        equivalents.setdefault(canonical(c), []).append(c)
     for c, course in available.items():
         m.add(sum(x[c, t] for t in terms) == chosen[c])
         for i, t in enumerate(terms):
@@ -64,13 +67,14 @@ def build_model(
             for group in groups:
                 if any(canonical(a) in done for a in group):
                     continue
-                prior = sum(x[a, pt] for a in group if a in available for pt in terms[:i])
+                alternatives = {c for a in group for c in equivalents.get(canonical(a), [])}
+                prior = sum(x[a, pt] for a in alternatives for pt in terms[:i])
                 rule(
                     m.add(x[c, t] <= prior),
                     f"Prerequisites for {c}: {' or '.join(group)} must precede {t}",
                 )
     for c, t in p.pinned.items():
-        if c in done:
+        if canonical(c) in done:
             continue
         rule(
             m.add(x[c, t] == 1) if (c, t) in x else m.add(False),
@@ -117,6 +121,10 @@ def build_model(
             )
     all_ids = set(available) | done
     used = {c: chosen.get(c, 1) for c in all_ids}
+    for primary, aliases in RULES["equivalents"].items():
+        members = [c for c in [primary, *aliases] if c in used]
+        if len(members) > 1:
+            m.add(sum(used[c] for c in members) <= 1)
     for c in RULES["required"]:
         rule(m.add(used.get(c, 0) == 1), f"Required course {c} is missing")
     # Pilot equivalencies for math requirements; unknown alternatives need reviewed override.
@@ -186,10 +194,7 @@ def build_model(
     course_metadata = {c.id: c for c in courses}
     experiential = set()
     for c in all_ids:
-        match = re.fullmatch(r"([A-Z]{3,4})(\d{3})[A-Z]?", c)
-        if not match or match[1] != p.concentration:
-            continue
-        if not 300 <= int(match[2]) < 500 or c in RULES["concentration_excluded_courses"]:
+        if not concentration_course(c, p.concentration):
             continue
         co = course_metadata.get(c)
         if co and (

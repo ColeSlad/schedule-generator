@@ -9,7 +9,7 @@ from .data import get_catalog, get_planning_catalog, get_sections, get_sections_
 from .insights import InsightRequest, InsightResponse, get_insights
 from .models import PlanRequest, PlanResult, ValidateRequest
 from .planner import generate
-from .rules import RULES
+from .rules import RULES, catalog_prefixes, course_aliases
 from .scheduling import schedules
 
 app = FastAPI(title="Terp Path", version="0.1.0")
@@ -30,12 +30,18 @@ def rules():
 def catalog(
     term: str = Query(pattern=r"^20\d{2}(01|05|08|12)$"),
     prefixes: str = "CMSC,ENGL,HIST",
+    concentration: str | None = Query(default=None, pattern=r"^[A-Z]{3,4}$"),
 ):
     parts = prefixes.split(",")
     if len(parts) > 8 or any(not re.fullmatch(r"[A-Z]{3,4}", s) for s in parts):
         raise HTTPException(422, "Choose up to 8 department prefixes.")
-    courses, warnings = get_catalog(term, parts)
-    return {"courses": courses, "warnings": warnings}
+    courses, warnings = get_catalog(
+        term, catalog_prefixes(concentration) if concentration else parts
+    )
+    return {
+        "courses": [{**c.model_dump(), "aliases": course_aliases(c.id)} for c in courses],
+        "warnings": warnings,
+    }
 
 
 @router.post("/insights", response_model=InsightResponse)
@@ -57,9 +63,7 @@ def sections(
 
 def load(request):
     p = request.preferences
-    prefixes = ["CMSC", "MATH", "STAT", "ENGL", "HIST", "ECON", p.concentration]
-    prefixes += [re.match(r"[A-Z]+", c)[0] for c in p.pinned if re.match(r"[A-Z]+", c)]
-    return get_planning_catalog(p.start_term, list(dict.fromkeys(prefixes))[:8])
+    return get_planning_catalog(p.start_term, catalog_prefixes(p.concentration, p.pinned))
 
 
 @router.post("/plans/generate", response_model=PlanResult)

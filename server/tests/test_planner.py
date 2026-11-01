@@ -223,6 +223,49 @@ def test_letter_suffixed_upper_level_courses_count_toward_new_concentrations():
     assert "GVPT309A" in result.plans[0].coverage["Concentration"]
 
 
+def business_fixture(ids):
+    profile, prefs, courses = fixture()
+    prefs.concentration = "BMIN"
+    courses = [c for c in courses if not c.id.startswith("HIST")] + [course(c) for c in ids]
+    return profile, prefs, courses
+
+
+def test_general_business_can_mix_bmin_courses_with_approved_bmgt_substitutes():
+    ids = ["BMIN345", "BMGT350", "BMIN375", "BMGT364"]
+    profile, prefs, courses = business_fixture(ids)
+    result = generate(profile, prefs, courses, limit=1)
+    assert result.plans
+    assert set(result.plans[0].coverage["Concentration"]) == set(ids)
+
+
+def test_renamed_business_courses_are_not_planned_again_after_completion():
+    profile, prefs, courses = business_fixture(
+        ["BMIN345", "BMGT340", "BMGT345", "BMIN355", "BMIN375", "BMIN395"]
+    )
+    profile.attempts.append(
+        Attempt(course="BMGT345", term="202601", credits=3, grade="A", status="completed")
+    )
+    result = generate(profile, prefs, courses, limit=1)
+    assert result.plans
+    planned = {c for s in result.plans[0].semesters for c in s.courses}
+    assert not planned & {"BMIN345", "BMGT340", "BMGT345"}
+    assert "BMIN345" in result.plans[0].coverage["Concentration"]
+
+
+def test_equivalent_business_options_cannot_supply_duplicate_concentration_credit():
+    profile, prefs, courses = business_fixture(
+        ["BMIN345", "BMGT340", "BMGT345", "BMIN355", "BMGT350", "BMGT355"]
+    )
+    assert generate(profile, prefs, courses, limit=1).status == "infeasible"
+
+
+def test_general_business_minor_courses_do_not_all_count_as_upper_level_concentration():
+    profile, prefs, courses = business_fixture(
+        ["BMIN210", "BMIN305", "BMIN345", "BMIN355", "BMIN395", "BMGT301", "BMGT402"]
+    )
+    assert generate(profile, prefs, courses, limit=1).status == "infeasible"
+
+
 def test_progress_must_precede_planned_semesters():
     p, prefs, courses = fixture()
     p.attempts[0].status = "in_progress"
