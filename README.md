@@ -37,7 +37,7 @@ Open http://127.0.0.1:8011. The API serves `dist/` and supports the frontend's `
 - Gen Ed discovery, interests, course pins/exclusions, course moves with academic revalidation, and section pins.
 - Joint course-and-section search with linked lecture/lab/discussion meetings, blocked times, open-seat filters, and alternative weekly calendars.
 - IndexedDB saves, validated JSON backups including draft plans, printable views, and data deletion. Restored plans must be regenerated before use.
-- PlanetTerp professor ratings and review excerpts, course and instructor-specific historical GPAs, grade distributions, sample counts, and source links.
+- Professor ratings and review links, course and instructor-specific historical GPAs, and expandable grade distributions from PlanetTerp.
 - A schedule comparison table sortable by ratings, GPA, campus days, or gaps, plus course/section comparisons with pinning for regeneration.
 
 ## Pilot boundaries
@@ -80,7 +80,7 @@ See [implementation notes](docs/ARCHITECTURE.md) and [milestones](docs/MILESTONE
 
 ## Course and professor comparisons
 
-Click a course's **GPA** link or **Compare sections & reviews** to see grade history, current sections, professor ratings, a recent review excerpt, and links to the full PlanetTerp reviews. Pin an eligible section and regenerate to apply it. The weekly schedule page compares every generated plan/schedule option; comparisons reorder existing valid options and never change academic constraints.
+Click a course or **Sections** to compare current sections, GPA, and professor ratings. **Reviews** opens the professor's PlanetTerp page; grade distributions are available in an expandable panel. Pin an eligible section and regenerate to apply it. Open **Compare schedules** on the weekly schedule page to compare generated options. Comparisons reorder existing valid options and never change academic constraints.
 
 Public data comes from the [PlanetTerp API](https://docs.planetterp.com/). Only course identifiers and instructor names are sent to PlanetTerp. Lookups run separately from generation, serialize external requests with a pause, cache successful results for 24 hours and missing matches for one hour, and back off on rate limits/outages. Cached data remains available with a stale flag. Missing ratings and unavailable grade records stay null.
 
