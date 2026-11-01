@@ -62,6 +62,7 @@ export interface Section {
   course: string;
   id: string;
   instructors: string;
+  instructor_names?: string[];
   open_seats: number | null;
   meetings: Meeting[];
   arranged: boolean;

@@ -1,5 +1,12 @@
-import type { Profile, Preferences, PlanResult, Course, Plan } from "./types";
-async function request<T>(path: string, body?: unknown): Promise<T> {
+import type {
+  Profile,
+  Preferences,
+  PlanResult,
+  Course,
+  Plan,
+  Section,
+} from "./types";
+async function requestData<T>(path: string, body?: unknown): Promise<T> {
   let response: Response;
   try {
     response = await fetch(`/api${path}`, {
@@ -34,13 +41,22 @@ async function request<T>(path: string, body?: unknown): Promise<T> {
   return response.json();
 }
 export const loadCatalog = (term: string, concentration: string) =>
-  request<{ courses: Course[]; warnings: string[] }>(
+  requestData<{ courses: Course[]; warnings: string[] }>(
     `/catalog?term=${term}&prefixes=${[...new Set(["CMSC", "MATH", "STAT", "ENGL", "HIST", "ECON", concentration])].join(",")}`,
   );
 export const generate = (profile: Profile, preferences: Preferences) =>
-  request<PlanResult>("/plans/generate", { profile, preferences });
+  requestData<PlanResult>("/plans/generate", { profile, preferences });
 export const validate = (
   profile: Profile,
   preferences: Preferences,
   plan: Plan,
-) => request<PlanResult>("/plans/validate", { profile, preferences, plan });
+) => requestData<PlanResult>("/plans/validate", { profile, preferences, plan });
+
+export const loadInsights = (
+  request: import("./insights/types").InsightRequest,
+) =>
+  requestData<import("./insights/types").InsightResponse>("/insights", request);
+export const loadSections = (term: string, course: string) =>
+  requestData<{ sections: Section[]; stale: boolean }>(
+    `/sections?term=${term}&course=${course}`,
+  );

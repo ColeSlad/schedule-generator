@@ -38,6 +38,7 @@ const sectionSchema = z.object({
   course: z.string(),
   id: z.string(),
   instructors: z.string(),
+  instructor_names: z.array(z.string()).default([]),
   open_seats: z.number().nullable(),
   meetings: z.array(meeting),
   arranged: z.boolean(),
