@@ -29,7 +29,7 @@ import type {
   Attempt,
   Section,
 } from "./types";
-import { defaultPreferences, termLabel } from "./types";
+import { defaultPreferences, termLabel, sectionFormat } from "./types";
 import { parseAudit } from "./audit";
 import {
   restore,
@@ -975,6 +975,19 @@ function Workspace() {
                       }
                     />
                   </label>
+                  <label
+                    className="check-label"
+                    title="Favor published async and online sections when choosing courses and schedules."
+                  >
+                    <input
+                      type="checkbox"
+                      checked={prefs.prefer_online}
+                      onChange={(e) =>
+                        preference("prefer_online", e.target.checked)
+                      }
+                    />
+                    Prefer online / async
+                  </label>
                   <label className="check-label">
                     <input
                       type="checkbox"
@@ -1404,7 +1417,11 @@ function Workspace() {
                                 >
                                   {section.course}
                                 </button>
-                                <small>{section.id}</small>
+                                <small>
+                                  {section.id}
+                                  {sectionFormat(section) &&
+                                    ` · ${sectionFormat(section)}`}
+                                </small>
                               </td>
                               <td>
                                 {instructorNames(section).length

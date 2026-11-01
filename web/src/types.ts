@@ -45,6 +45,7 @@ export interface Preferences {
   pinned_sections: Record<string, string>;
   blocked: Meeting[];
   allow_full: boolean;
+  prefer_online: boolean;
 }
 export interface Course {
   id: string;
@@ -67,6 +68,8 @@ export interface Section {
   open_seats: number | null;
   meetings: Meeting[];
   arranged: boolean;
+  delivery?: "in_person" | "online" | "blended" | "unknown";
+  asynchronous?: boolean;
   source: string;
   fetched_at: string;
 }
@@ -99,6 +102,15 @@ export const defaultPreferences: Preferences = {
   pinned_sections: {},
   blocked: [],
   allow_full: false,
+  prefer_online: false,
 };
+export const sectionFormat = (section: Section) =>
+  section.asynchronous
+    ? "Async"
+    : section.delivery === "online"
+      ? "Online"
+      : section.delivery === "blended"
+        ? "Blended"
+        : "";
 export const termLabel = (term: string) =>
   `${({ "01": "Spring", "05": "Summer", "08": "Fall", "12": "Winter" } as Record<string, string>)[term.slice(4)] ?? term} ${term.slice(0, 4)}`;

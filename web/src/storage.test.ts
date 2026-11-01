@@ -38,3 +38,18 @@ it("rejects invalid limits and arbitrary backup shapes", () => {
   ).toThrow();
   expect(() => importWorkspace('{"version":9}')).toThrow();
 });
+it("restores older backups with online preference off and preserves an enabled preference", () => {
+  const workspace = importWorkspace(
+    JSON.stringify({
+      version: 1,
+      profile: demo,
+      preferences: { ...defaultPreferences, prefer_online: undefined },
+      result: null,
+    }),
+  );
+  expect(workspace.preferences.prefer_online).toBe(false);
+  workspace.preferences.prefer_online = true;
+  expect(
+    importWorkspace(JSON.stringify(workspace)).preferences.prefer_online,
+  ).toBe(true);
+});

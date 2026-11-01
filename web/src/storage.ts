@@ -27,6 +27,7 @@ export const preferencesSchema = z
     pinned_sections: z.record(z.string(), z.string()),
     blocked: z.array(meeting).max(30),
     allow_full: z.boolean(),
+    prefer_online: z.boolean().default(false),
   })
   .refine(
     (p) =>
@@ -42,6 +43,10 @@ const sectionSchema = z.object({
   open_seats: z.number().nullable(),
   meetings: z.array(meeting),
   arranged: z.boolean(),
+  delivery: z
+    .enum(["in_person", "online", "blended", "unknown"])
+    .default("unknown"),
+  asynchronous: z.boolean().default(false),
   source: z.string(),
   fetched_at: z.string(),
 });

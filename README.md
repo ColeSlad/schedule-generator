@@ -34,6 +34,7 @@ Open http://127.0.0.1:8011. The API serves `dist/` and supports the frontend's `
 
 - Browser PDF extraction, deduplicated course attempts, transfer/AP and in-progress credits, credit reconciliation, and editable import review.
 - CS area/elective allocation, prerequisite sequencing, concentration overlap/exclusions, residency/credit minimums, graduation targets, and semester credit limits.
+- Optional online/async preference for published first-semester courses and sections. Async sections rank ahead of other online sections, then blended sections, while graduation timing, credit totals, seat rules, pins, and conflicts retain priority.
 - Gen Ed discovery, interests, course pins/exclusions, course moves with academic revalidation, and section pins.
 - Joint course-and-section search with linked lecture/lab/discussion meetings, blocked times, open-seat filters, and alternative weekly calendars.
 - IndexedDB saves, validated JSON backups including draft plans, printable views, and data deletion. Restored plans must be regenerated before use.

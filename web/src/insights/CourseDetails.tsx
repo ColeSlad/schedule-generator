@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { ArrowUpRight, X } from "lucide-react";
 import type { Preferences, Section } from "../types";
-import { termLabel } from "../types";
+import { termLabel, sectionFormat } from "../types";
 import { loadSections } from "../api";
 import { useInsights } from "./InsightsProvider";
 import { instructorNames, overlaps } from "./metrics";
@@ -253,7 +253,12 @@ export function CourseDetails({
                 );
                 return (
                   <tr key={s.id}>
-                    <td>{s.id}</td>
+                    <td>
+                      {s.id}
+                      {!s.asynchronous && sectionFormat(s) && (
+                        <small>{sectionFormat(s)}</small>
+                      )}
+                    </td>
                     <td>
                       {instructorNames(s).length
                         ? instructorNames(s).map((name) => (
@@ -282,6 +287,7 @@ export function CourseDetails({
                       })}
                     </td>
                     <td>
+                      {s.asynchronous && "Async"}
                       {s.meetings.map((m, i) => (
                         <div key={i}>
                           {m.days} {clock(m.start)}–{clock(m.end)}

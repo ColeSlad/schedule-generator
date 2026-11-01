@@ -20,6 +20,7 @@ export function scheduleMetrics(
   insights: Record<string, CourseInsight>,
 ) {
   const intervals: Record<string, { start: number; end: number }[]> = {};
+  const campusDays = new Set<string>();
   const ratings = new Map<string, number>();
   const requested = new Set<string>();
   const gpas: number[] = [];
@@ -34,7 +35,11 @@ export function scheduleMetrics(
       if (p?.average_rating != null) ratings.set(name, p.average_rating);
     }
     for (const m of s.meetings)
-      for (const d of days(m.days)) (intervals[d] ??= []).push(m);
+      for (const d of days(m.days)) {
+        (intervals[d] ??= []).push(m);
+        if (s.delivery !== "online" && !/\bONLINE\b/i.test(m.location))
+          campusDays.add(d);
+      }
   }
   let gaps = 0;
   for (const list of Object.values(intervals)) {
@@ -46,7 +51,7 @@ export function scheduleMetrics(
     }
   }
   return {
-    days: Object.keys(intervals).length,
+    days: campusDays.size,
     gaps,
     rating: ratings.size
       ? [...ratings.values()].reduce((a, b) => a + b, 0) / ratings.size

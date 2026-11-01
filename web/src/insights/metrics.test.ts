@@ -92,6 +92,17 @@ it("keeps a real zero GPA, ignores missing scores, and counts a shared professor
     [],
   );
 });
+it("keeps online meetings in time comparisons without counting them as campus days", () => {
+  const online = { ...section("ENGL393"), delivery: "online" as const };
+  const campus = section("CMSC420", 680, 730, "M");
+  expect(scheduleMetrics([online, campus], {}).days).toBe(1);
+  const blended = { ...section("HIST300"), delivery: "blended" as const };
+  blended.meetings[0].location = "ONLINE";
+  expect(scheduleMetrics([blended], {}).days).toBe(0);
+  expect(overlaps(online.meetings[0], section("CMSC430").meetings[0])).toBe(
+    true,
+  );
+});
 it("sorts only existing options, keeps missing data last, and favors complete coverage", () => {
   const option = (
     planIndex: number,
