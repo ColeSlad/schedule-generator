@@ -67,7 +67,11 @@ class Meeting(BaseModel):
 
 class Preferences(BaseModel):
     start_term: str = Field(default="202701", pattern=r"^20\d{2}(01|05|08|12)$")
-    target_term: str | None = Field(default=None, pattern=r"^20\d{2}(01|05|08|12)$")
+    target_term: str | None = Field(
+        default=None,
+        pattern=r"^20\d{2}(01|05|08|12)$",
+        description="Exact graduation semester. Omit to find the earliest available finish.",
+    )
     min_credits: int = Field(default=12, ge=0, le=24)
     max_credits: int = Field(default=15, ge=1, le=24)
     summer: bool = False

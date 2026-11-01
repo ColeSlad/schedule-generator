@@ -18,8 +18,8 @@ def terms_from(p):
             t = f"{y}{code}"
             if (
                 t < p.start_term
-                or (code == "05" and not p.summer)
-                or (code == "12" and not p.winter)
+                or (code == "05" and not p.summer and t not in [p.start_term, p.target_term])
+                or (code == "12" and not p.winter and t not in [p.start_term, p.target_term])
             ):
                 continue
             if p.target_term and t > p.target_term:
@@ -100,6 +100,11 @@ def build_model(
             m.add(load >= max(1, p.min_credits) * a),
             f"Minimum {p.min_credits} credits in active term {t}",
         )
+        if p.target_term and (t in [p.start_term, p.target_term] or t[4:] in ["01", "08"]):
+            rule(
+                m.add(a == 1),
+                f"Enrollment in {t} is required to graduate in {p.target_term}",
+            )
     selection = None
     if section_options is not None:
         selection = add_section_constraints(
@@ -388,10 +393,16 @@ def generate(profile, p, courses, forbidden=None, fixed=None, limit=3, section_o
                 "Choose a start term after all imported in-progress courses, or update their status."
             ],
         )
-    if not terms or terms[0] != p.start_term:
+    if (
+        not terms
+        or terms[0] != p.start_term
+        or (p.target_term is not None and terms[-1] != p.target_term)
+    ):
         return PlanResult(
             status="needs_review",
-            messages=["Choose an enabled start term and a target within the planning horizon."],
+            messages=[
+                "Choose start and graduation semesters within the 12-regular-semester planning horizon."
+            ],
         )
     if not courses:
         return PlanResult(
@@ -455,7 +466,12 @@ def generate(profile, p, courses, forbidden=None, fixed=None, limit=3, section_o
             ]
             if result == cp_model.FEASIBLE or shorter_unknown:
                 conditions.append(
-                    "A valid candidate was found before the time limit; earliest graduation and preference optimality are not proven."
+                    "A valid candidate was found before the time limit; "
+                    + (
+                        "earliest graduation and preference optimality are not proven."
+                        if p.target_term is None
+                        else "preference optimality is not proven."
+                    )
                 )
             if any(s.term != p.start_term for s in semesters):
                 conditions.append(

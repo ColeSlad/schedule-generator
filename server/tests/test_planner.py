@@ -88,7 +88,7 @@ def test_satisfies_five_area_courses_electives_and_concentration():
     )
 
 
-def test_deadline_infeasible_and_credit_blocker():
+def test_graduation_term_infeasible_and_credit_blocker():
     p, prefs, courses = fixture()
     prefs.target_term = "202701"
     prefs.max_credits = 15
@@ -288,6 +288,64 @@ def test_earliest_mode_uses_shortest_feasible_horizon():
     prefs.target_term = None
     result = generate(p, prefs, courses, limit=1)
     assert result.plans[-1].semesters[-1].term == "202708"
+
+
+def test_selected_graduation_semester_is_exact_and_keeps_regular_semesters_active():
+    profile, prefs, courses = fixture()
+    prefs.target_term = "202901"
+    result = generate(profile, prefs, courses, limit=3)
+    assert result.plans
+    for plan in result.plans:
+        assert [s.term for s in plan.semesters] == [
+            "202701",
+            "202708",
+            "202801",
+            "202808",
+            "202901",
+        ]
+        assert all(s.courses for s in plan.semesters)
+
+
+def test_exact_graduation_can_add_courses_to_meet_semester_credit_minimums():
+    profile, prefs, courses = fixture()
+    prefs.target_term = "202901"
+    prefs.min_credits = prefs.max_credits = 12
+    courses += [course(f"ENGL{n}") for n in range(300, 309)]
+    result = generate(profile, prefs, courses, limit=1)
+    assert result.plans
+    plan = result.plans[0]
+    assert plan.semesters[-1].term == "202901"
+    assert len(plan.semesters) == 5
+    assert all(s.credits == 12 for s in plan.semesters)
+    assert sum(s.credits for s in plan.semesters) == 60
+
+
+@pytest.mark.parametrize("target", ["202805", "202812"])
+def test_explicit_summer_or_winter_graduation_is_included_without_optional_terms(target):
+    profile, prefs, courses = fixture()
+    prefs.target_term = target
+    result = generate(profile, prefs, courses, limit=1)
+    assert result.plans
+    plan = result.plans[0]
+    assert plan.semesters[-1].term == target
+    assert all(s.term[4:] in ["01", "08"] or s.term == target for s in plan.semesters)
+
+
+def test_out_of_horizon_graduation_is_not_silently_shortened():
+    profile, prefs, courses = fixture()
+    prefs.target_term = "203301"
+    result = generate(profile, prefs, courses, limit=1)
+    assert result.status == "needs_review" and not result.plans
+    assert any("horizon" in message for message in result.messages)
+
+
+def test_validation_rejects_a_plan_that_finishes_before_the_selected_semester():
+    profile, prefs, courses = fixture()
+    original = generate(profile, prefs, courses, limit=1).plans[0]
+    fixed = {s.term: s.courses for s in original.semesters}
+    prefs.target_term = "202901"
+    result = generate(profile, prefs, courses, fixed=fixed, limit=1)
+    assert result.status == "infeasible" and not result.plans
 
 
 def test_transfer_concentration_credits_are_capped_at_six():
