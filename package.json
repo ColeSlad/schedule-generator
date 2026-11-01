@@ -4,12 +4,13 @@
   "version": "0.1.0",
   "type": "module",
   "scripts": {
-    "dev": "vite --host 127.0.0.1",
+    "dev": "node scripts/dev.mjs",
     "build": "tsc -b && vite build",
     "test": "vitest run",
     "preview": "vite preview --host 127.0.0.1",
-    "format": "prettier --write web/src vite.config.ts tsconfig.json package.json docs/*.md README.md",
-    "format:check": "prettier --check web/src vite.config.ts tsconfig.json package.json docs/*.md README.md"
+    "format": "prettier --write web/src scripts vite.config.ts tsconfig.json package.json docs/*.md README.md",
+    "format:check": "prettier --check web/src scripts vite.config.ts tsconfig.json package.json docs/*.md README.md",
+    "dev:web": "vite --host 127.0.0.1"
   },
   "dependencies": {
     "idb-keyval": "^6.2.2",
@@ -20,6 +21,7 @@
     "zod": "^4.0.0"
   },
   "devDependencies": {
+    "@types/node": "^22.20.5",
     "@types/react": "^19.2.0",
     "@types/react-dom": "^19.2.0",
     "@vitejs/plugin-react": "^5.0.0",

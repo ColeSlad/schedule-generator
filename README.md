@@ -12,10 +12,10 @@ Use Node 22+ and Python 3.13. No API keys are required.
 npm ci
 python3.13 -m venv .venv
 .venv/bin/pip install -r server/requirements.lock
-.venv/bin/uvicorn server.app.main:app --reload --port 8011
-# In another terminal:
 npm run dev
 ```
+
+`npm run dev` starts the planning API and frontend together, waits for API readiness, and stops both when you press Ctrl+C. If the API is already running, it reuses it. For separate terminals, use `npm run dev:web` and `.venv/bin/uvicorn server.app.main:app --reload --port 8011`.
 
 Open **http://127.0.0.1:5173**. Use the same host consistently: `localhost` and `127.0.0.1` have separate browser storage. API documentation is at http://127.0.0.1:8011/docs.
 
