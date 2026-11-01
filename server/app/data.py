@@ -4,6 +4,7 @@ import os
 import re
 import sqlite3
 import time
+from concurrent.futures import ThreadPoolExecutor
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -165,9 +166,12 @@ def minutes(text):
 
 
 def parse_sections(html, course, url, stamp):
-    soup = BeautifulSoup(html, "html.parser")
+    soup = html if isinstance(html, BeautifulSoup) else BeautifulSoup(html, "html.parser")
     sections = []
-    for node in soup.select(".section"):
+    container = soup.find(id=course, class_="course-sections")
+    if container is None and soup.select_one(".course-sections"):
+        return []
+    for node in (container or soup).select(".section"):
         code = value(node, ".section-id")
         if not code:
             continue
@@ -292,3 +296,45 @@ def enrich_catalog(courses, prefixes):
         except (httpx.HTTPError, ValueError):
             warnings.append(f"{prefix}: official catalog unavailable; using term data.")
     return list(result.values()), warnings
+
+
+def get_sections_many(term, course_ids):
+    """Fetch bounded multi-course batches, keeping each course's sections separate."""
+    codes = sorted(set(course_ids))
+    if any(not re.fullmatch(r"[A-Z]{3,4}\d{3}[A-Z]?", c) for c in codes):
+        raise ValueError("Invalid course identifier")
+    batches = [codes[i : i + 25] for i in range(0, len(codes), 25)]
+
+    def fetch(batch):
+        url = f"{BASE}/{term}/sections?courseIds={','.join(batch)}"
+        try:
+            body, stamp, stale = cached_get(url, 300)
+            parsed = BeautifulSoup(body, "html.parser")
+            if not parsed.select_one(".course-sections"):
+                raise ValueError("Missing course section containers")
+            result = {
+                c: parse_sections(parsed, c, url, stamp)
+                for c in batch
+                if parsed.find(id=c, class_="course-sections") is not None
+            }
+            warnings = (
+                ["Section data is stale; availability needs to be refreshed."] if stale else []
+            )
+            missing = [c for c in batch if c not in result]
+            if missing:
+                warnings.append(
+                    f"Section data missing for {', '.join(missing[:3])}{' and other courses' if len(missing) > 3 else ''}."
+                )
+            return result, warnings
+        except (httpx.HTTPError, ValueError):
+            return {}, [
+                f"Section data unavailable for {', '.join(batch[:3])}{' and other courses' if len(batch) > 3 else ''}."
+            ]
+
+    sections = {}
+    warnings = []
+    with ThreadPoolExecutor(max_workers=4) as pool:
+        for result, notes in pool.map(fetch, batches):
+            sections.update(result)
+            warnings.extend(notes)
+    return sections, list(dict.fromkeys(warnings))

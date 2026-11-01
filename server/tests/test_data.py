@@ -20,3 +20,50 @@ def test_link_spacing_does_not_drop_required_courses():
     html = """<div class="courseblock"><p class="courseblocktitle">CMSC422 Machine Learning (3 Credits)</p><p class="courseblockextra"><strong>Prerequisite:</strong> Minimum grade of C- in <a>CMSC320</a>, <a>CMSC330</a>, and <a>CMSC351</a>; and permission of department.</p></div>"""
     c = parse_catalog(html, "synthetic", "2026-10-29")[0]
     assert c.prerequisites == [["CMSC320"], ["CMSC330"], ["CMSC351"]]
+
+
+def test_bulk_section_response_keeps_courses_separate():
+    html = """<div class="course-sections" id="CMSC420"><div class="section"><span class="section-id">0101</span><span class="open-seats-count">4</span></div></div><div class="course-sections" id="CMSC430"><div class="section"><span class="section-id">0201</span><span class="open-seats-count">0</span></div></div>"""
+    first = parse_sections(html, "CMSC420", "synthetic", "2026-11-01")
+    second = parse_sections(html, "CMSC430", "synthetic", "2026-11-01")
+    assert [s.id for s in first] == ["0101"] and first[0].open_seats == 4
+    assert [s.id for s in second] == ["0201"] and second[0].open_seats == 0
+    assert not parse_sections(html, "CMSC451", "synthetic", "2026-11-01")
+
+
+def test_bulk_fetch_bounds_batches_and_preserves_missing_data(monkeypatch):
+    from server.app import data
+
+    calls = []
+
+    def fetch(url, ttl):
+        calls.append(url)
+        ids = url.split("=")[-1].split(",")
+        return (
+            "".join(
+                f'<div class="course-sections" id="{c}"><div class="section"><span class="section-id">0101</span></div></div>'
+                for c in ids
+            ),
+            "2026-11-01",
+            False,
+        )
+
+    monkeypatch.setattr(data, "cached_get", fetch)
+    result, warnings = data.get_sections_many("202701", [f"HIST{n}" for n in range(100, 151)])
+    assert len(calls) == 3 and len(result) == 51 and not warnings
+    assert all(len(url.split("=")[-1].split(",")) <= 25 for url in calls)
+    monkeypatch.setattr(
+        data, "cached_get", lambda *args: (_ for _ in ()).throw(ValueError("unavailable"))
+    )
+    result, warnings = data.get_sections_many("202701", ["CMSC420"])
+    assert "CMSC420" not in result and warnings
+
+
+def test_partial_bulk_response_does_not_treat_missing_course_as_closed(monkeypatch):
+    from server.app import data
+
+    html = '<div class="course-sections" id="CMSC420"></div>'
+    monkeypatch.setattr(data, "cached_get", lambda *args: (html, "2026-11-01", False))
+    result, warnings = data.get_sections_many("202701", ["CMSC420", "CMSC430"])
+    assert result["CMSC420"] == [] and "CMSC430" not in result
+    assert any("CMSC430" in warning for warning in warnings)
