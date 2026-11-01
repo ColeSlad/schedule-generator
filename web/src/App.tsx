@@ -41,6 +41,7 @@ import {
 } from "./storage";
 import { generate, loadCatalog, validate } from "./api";
 import { demo } from "./demo";
+import { concentrations } from "./concentrations";
 
 import { InsightsProvider, useInsights } from "./insights/InsightsProvider";
 import { instructorNames, calendarRange } from "./insights/metrics";
@@ -111,6 +112,10 @@ function Workspace() {
   useEffect(() => {
     window.scrollTo(0, 0);
   }, [tab]);
+  useEffect(() => {
+    setCourses([]);
+    setWarnings([]);
+  }, [prefs.start_term, prefs.concentration]);
   useEffect(() => {
     restore()
       .then((w) => {
@@ -950,8 +955,17 @@ function Workspace() {
                         preference("concentration", e.target.value)
                       }
                     >
-                      {["HIST", "ENGL", "MATH", "STAT", "ECON"].map((v) => (
-                        <option key={v}>{v}</option>
+                      {!concentrations.some(
+                        ([code]) => code === prefs.concentration,
+                      ) && (
+                        <option value={prefs.concentration}>
+                          {prefs.concentration}
+                        </option>
+                      )}
+                      {concentrations.map(([code, name]) => (
+                        <option key={code} value={code}>
+                          {name} ({code})
+                        </option>
                       ))}
                     </select>
                   </label>
