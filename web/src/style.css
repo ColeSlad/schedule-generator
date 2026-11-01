@@ -1426,3 +1426,289 @@ footer {
     font-size: 11px;
   }
 }
+
+/* Course insights stay compact until the student opens a comparison. */
+.course-insights {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-top: 8px;
+}
+.insight-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  color: var(--red);
+  padding: 2px 0;
+}
+.insight-link:hover {
+  text-decoration: underline;
+}
+.professor-score {
+  display: inline-flex !important;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px !important;
+  color: #76632e !important;
+  margin: 0 !important;
+}
+.professor-score svg {
+  fill: #e9c866;
+  stroke: #ad8a27;
+}
+.professor-score .muted {
+  display: inline !important;
+  margin: 0 !important;
+}
+.schedule-comparison {
+  margin-bottom: 22px;
+}
+.schedule-comparison .card-heading select {
+  width: auto;
+  max-width: 230px;
+  font-size: 12px;
+}
+.schedule-comparison th,
+.section-comparison th {
+  font-size: 10px;
+}
+.schedule-comparison td,
+.section-comparison td {
+  padding: 12px 8px;
+  font-size: 12px;
+}
+.schedule-comparison td small,
+.section-comparison td small {
+  font-size: 10px;
+  color: var(--muted);
+  margin-top: 5px;
+}
+.selected-schedule {
+  background: #f8f0ef;
+}
+.metric-notes {
+  margin-top: 18px;
+  border-top: 1px solid var(--line);
+  padding-top: 13px;
+  color: var(--muted);
+  font-size: 11px;
+}
+.metric-notes summary {
+  font-size: 11px;
+  font-weight: 400;
+  display: list-item;
+}
+.metric-notes p {
+  margin-top: 10px;
+  font-size: 11px;
+}
+.metric-notes a {
+  text-decoration: underline;
+}
+.insight-dialog {
+  width: min(1000px, calc(100vw - 32px));
+  max-height: 90vh;
+  margin: auto;
+  padding: 28px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: #fff;
+  color: #242725;
+  overflow: auto;
+  box-shadow: 0 20px 80px #12220d33;
+}
+.insight-dialog::backdrop {
+  background: #1d271b55;
+  backdrop-filter: blur(3px);
+}
+.insight-dialog > .card-heading {
+  align-items: flex-start;
+}
+.insight-dialog h2 {
+  font-size: 25px;
+}
+.insight-dialog > .card-heading p {
+  font-size: 12px;
+  margin-top: 6px;
+}
+.insight-headline {
+  display: flex;
+  gap: 30px;
+  align-items: center;
+  padding: 18px 0;
+  border-top: 1px solid var(--line);
+}
+.insight-headline > div > span {
+  font-size: 11px;
+  color: var(--muted);
+}
+.insight-headline strong {
+  display: flex;
+  gap: 6px;
+  align-items: baseline;
+  font-size: 26px;
+  font-weight: 600;
+  margin-top: 6px;
+}
+.insight-headline strong small {
+  font-size: 13px;
+  font-weight: 400;
+  color: var(--muted);
+}
+.insight-headline > a {
+  margin-left: auto;
+}
+.grade-bars {
+  display: flex;
+  height: 22px;
+  overflow: hidden;
+  border-radius: 5px;
+  background: #eef0e9;
+}
+.grade-bars > div {
+  height: 100%;
+  min-width: 1px;
+}
+.grade-legend {
+  display: flex;
+  gap: 15px;
+  flex-wrap: wrap;
+  margin: 12px 0;
+}
+.grade-legend span {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+}
+.grade-legend i {
+  width: 8px;
+  height: 8px;
+  border-radius: 2px;
+}
+.grade-A {
+  background: #7b9b70;
+}
+.grade-B {
+  background: #a9be91;
+}
+.grade-C {
+  background: #e4ca80;
+}
+.grade-D {
+  background: #d89d6e;
+}
+.grade-F {
+  background: #bd6d70;
+}
+.grade-W {
+  background: #9daac3;
+}
+.grade-Other {
+  background: #d3d7d0;
+}
+.instructor-cell + .instructor-cell {
+  margin-top: 12px;
+}
+.instructor-cell > a {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+.instructor-cell small {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.instructor-cell .text-button {
+  margin-top: 5px;
+}
+.section-comparison table {
+  min-width: 760px;
+}
+.conflict-label {
+  color: #a5633c !important;
+}
+.professor-reviews {
+  margin-top: 30px;
+}
+.professor-reviews article {
+  padding: 18px 0;
+  border-bottom: 1px solid var(--line);
+}
+.professor-reviews .card-heading {
+  margin-bottom: 8px;
+}
+.professor-reviews strong {
+  font-size: 13px;
+}
+.professor-reviews blockquote {
+  margin: 12px 0;
+  padding-left: 12px;
+  border-left: 2px solid #e6d8d6;
+  font-size: 12px;
+  line-height: 1.7;
+}
+.professor-reviews .text-button {
+  margin-top: 9px;
+}
+.data-note {
+  font-size: 11px;
+  color: #8a753a;
+  margin-top: 12px;
+}
+.course-browser-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 15px;
+  margin-top: 18px;
+  font-size: 11px;
+  color: var(--muted);
+}
+.course-browser-toolbar select {
+  width: auto;
+  font-size: 11px;
+}
+@media (max-width: 560px) {
+  .insight-dialog {
+    padding: 20px;
+  }
+  .insight-headline {
+    gap: 18px;
+    flex-wrap: wrap;
+  }
+  .insight-headline strong {
+    font-size: 23px;
+  }
+  .insight-headline > a {
+    margin-left: 0;
+  }
+  .schedule-comparison .card-heading {
+    align-items: start;
+    flex-direction: column;
+  }
+  .schedule-comparison table {
+    min-width: 620px;
+  }
+  .professor-reviews .card-heading {
+    align-items: start;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .course-browser-toolbar {
+    font-size: 10px;
+  }
+  .course-browser-toolbar select {
+    max-width: 185px;
+  }
+}
+@media print {
+  .insight-dialog,
+  .course-insights,
+  .metric-notes {
+    display: none !important;
+  }
+}

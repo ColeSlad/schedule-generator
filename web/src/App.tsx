@@ -29,6 +29,7 @@ import type {
   Course,
   Plan,
   Attempt,
+  Section,
 } from "./types";
 import { defaultPreferences, termLabel } from "./types";
 import { parseAudit } from "./audit";
@@ -42,6 +43,11 @@ import {
 } from "./storage";
 import { generate, loadCatalog, validate } from "./api";
 import { demo } from "./demo";
+
+import { InsightsProvider, useInsights } from "./insights/InsightsProvider";
+import { instructorNames } from "./insights/metrics";
+import { CourseBadges, ScheduleComparison } from "./insights/Comparison";
+import { CourseDetails } from "./insights/CourseDetails";
 
 type Tab = "overview" | "audit" | "plan" | "schedule";
 const genedNames: Record<string, string> = {
@@ -67,6 +73,17 @@ const time = (n: number) =>
   `${Math.floor(n / 60) % 12 || 12}:${String(n % 60).padStart(2, "0")}${n >= 720 ? "pm" : "am"}`;
 
 export default function App() {
+  return (
+    <InsightsProvider>
+      <Workspace />
+    </InsightsProvider>
+  );
+}
+function Workspace() {
+  const { records: courseInsights, ensure: ensureInsights } = useInsights();
+  const [detailCourse, setDetailCourse] = useState<string | null>(null);
+  const [browseLimit, setBrowseLimit] = useState(16);
+  const [courseSort, setCourseSort] = useState("original");
   const [profile, setProfile] = useState<Profile | null>(null),
     [prefs, setPrefs] = useState<Preferences>(defaultPreferences),
     [ready, setReady] = useState(false),
@@ -115,6 +132,49 @@ export default function App() {
   const plan = result?.plans[planIndex];
   const schedules = plan?.schedules ?? [];
   const schedule = schedules[scheduleIndex] ?? [];
+  useEffect(() => {
+    if (!result) return;
+    const instructors: Record<string, string[]> = {};
+    for (const candidate of result.plans)
+      for (const weekly of candidate.schedules)
+        for (const section of weekly) {
+          instructors[section.course] = [
+            ...new Set([
+              ...(instructors[section.course] ?? []),
+              ...instructorNames(section),
+            ]),
+          ];
+        }
+    const codes = Object.keys(instructors);
+    if (codes.length) ensureInsights({ courses: codes, instructors });
+  }, [result, ensureInsights]);
+  const matchingCourses = courses.filter((c) =>
+    `${c.id} ${c.title} ${c.geneds.join(" ")}`
+      .toLowerCase()
+      .includes(search.toLowerCase()),
+  );
+  const visibleCourses = matchingCourses.slice(0, browseLimit);
+  const visibleCodes = visibleCourses.map((c) => c.id).join(",");
+  useEffect(() => {
+    if (browse && visibleCodes)
+      ensureInsights({ courses: visibleCodes.split(",") });
+  }, [browse, visibleCodes, ensureInsights]);
+  const displayedCourses =
+    courseSort === "gpa"
+      ? [...visibleCourses].sort(
+          (a, b) =>
+            (courseInsights[b.id]?.average_gpa ?? -1) -
+            (courseInsights[a.id]?.average_gpa ?? -1),
+        )
+      : visibleCourses;
+  function pinSection(section: Section) {
+    setPrefs((p) => ({
+      ...p,
+      pinned_sections: { ...p.pinned_sections, [section.course]: section.id },
+      pinned: { ...p.pinned, [section.course]: p.start_term },
+      excluded: p.excluded.filter((c) => c !== section.course),
+    }));
+  }
   const changeProfile = (p: Profile) => setProfile({ ...p, reviewed: false });
   const preference = <K extends keyof Preferences>(
     key: K,
@@ -1002,6 +1062,10 @@ export default function App() {
                                         result?.course_titles?.[c] ??
                                         "See Testudo for course details"}
                                     </span>
+                                    <CourseBadges
+                                      course={c}
+                                      onOpen={() => setDetailCourse(c)}
+                                    />
                                   </div>
                                   <select
                                     aria-label={`Move ${c}`}
@@ -1065,6 +1129,17 @@ export default function App() {
           )}
           {tab === "schedule" && (
             <>
+              {result && (
+                <ScheduleComparison
+                  plans={result.plans}
+                  selectedPlan={planIndex}
+                  selectedSchedule={scheduleIndex}
+                  onSelect={(p, s) => {
+                    setPlanIndex(p);
+                    setScheduleIndex(s);
+                  }}
+                />
+              )}
               <section className="card">
                 <div className="card-heading">
                   <h3>When are you unavailable?</h3>
@@ -1242,6 +1317,17 @@ export default function App() {
                           </span>
                         </div>
                         <p>{s.instructors || "Instructor TBA"}</p>
+                        <CourseBadges
+                          course={s.course}
+                          names={instructorNames(s)}
+                          onOpen={() => setDetailCourse(s.course)}
+                        />
+                        <button
+                          className="text-button"
+                          onClick={() => setDetailCourse(s.course)}
+                        >
+                          Compare sections & reviews <ArrowUpRight size={13} />
+                        </button>
                         {s.arranged && (
                           <p className="review-note">
                             Arranged or TBA meetings need manual conflict
@@ -1324,7 +1410,7 @@ export default function App() {
           </footer>
         </div>
       </main>
-      {browse && (
+      {browse && !detailCourse && (
         <div className="modal-backdrop">
           <section
             role="dialog"
@@ -1352,7 +1438,10 @@ export default function App() {
                 aria-label="Search courses"
                 placeholder="Search course code, title, or Gen Ed…"
                 value={search}
-                onChange={(e) => setSearch(e.target.value)}
+                onChange={(e) => {
+                  setSearch(e.target.value);
+                  setBrowseLimit(16);
+                }}
               />
               <button
                 aria-label="Refresh courses"
@@ -1387,63 +1476,105 @@ export default function App() {
                 {busy || "No course data loaded. Refresh to try again."}
               </p>
             )}
+            <div className="course-browser-toolbar">
+              <span>
+                {Math.min(browseLimit, matchingCourses.length)} of{" "}
+                {matchingCourses.length} courses
+              </span>
+              <select
+                aria-label="Sort visible courses"
+                value={courseSort}
+                onChange={(e) => setCourseSort(e.target.value)}
+              >
+                <option value="original">Course order</option>
+                <option value="gpa">Higher GPA · shown courses</option>
+              </select>
+            </div>
             <div className="course-results">
-              {courses
-                .filter((c) =>
-                  `${c.id} ${c.title} ${c.geneds.join(" ")}`
-                    .toLowerCase()
-                    .includes(search.toLowerCase()),
-                )
-                .map((c) => (
-                  <article key={c.id}>
-                    <div>
-                      <strong>
-                        {c.id}
-                        <span className="muted"> · {c.credits} credits</span>
-                      </strong>
-                      <h4>{c.title}</h4>
-                      <div className="chips">
-                        {c.geneds.map((g) => (
-                          <span className="tag" key={g}>
-                            {g}
-                          </span>
-                        ))}
-                      </div>
-                      <a
-                        href={c.source}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="small text-button"
-                      >
-                        Course details <ArrowUpRight size={12} />
-                      </a>
+              {displayedCourses.map((c) => (
+                <article key={c.id}>
+                  <div>
+                    <strong>
+                      {c.id}
+                      <span className="muted"> · {c.credits} credits</span>
+                    </strong>
+                    <h4>{c.title}</h4>
+                    <CourseBadges
+                      course={c.id}
+                      onOpen={() => setDetailCourse(c.id)}
+                    />
+                    <div className="chips">
+                      {c.geneds.map((g) => (
+                        <span className="tag" key={g}>
+                          {g}
+                        </span>
+                      ))}
                     </div>
-                    <div className="course-actions">
-                      <button
-                        className="button secondary"
-                        disabled={prefs.excluded.includes(c.id)}
-                        onClick={() => setCoursePin(c.id, pinTerm)}
-                      >
-                        {prefs.pinned[c.id] ? "Pinned" : "+ Pin"}
-                      </button>
-                      <button
-                        className="text-button muted"
-                        onClick={() => {
-                          setCoursePin(c.id, "");
-                          preference(
-                            "excluded",
-                            Array.from(new Set([...prefs.excluded, c.id])),
-                          );
-                        }}
-                      >
-                        Exclude
-                      </button>
-                    </div>
-                  </article>
-                ))}
+                    <a
+                      href={c.source}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="small text-button"
+                    >
+                      Course details <ArrowUpRight size={12} />
+                    </a>
+                  </div>
+                  <div className="course-actions">
+                    <button
+                      className="button secondary"
+                      disabled={prefs.excluded.includes(c.id)}
+                      onClick={() => setCoursePin(c.id, pinTerm)}
+                    >
+                      {prefs.pinned[c.id] ? "Pinned" : "+ Pin"}
+                    </button>
+                    <button
+                      className="text-button muted"
+                      onClick={() => {
+                        setCoursePin(c.id, "");
+                        preference(
+                          "excluded",
+                          Array.from(new Set([...prefs.excluded, c.id])),
+                        );
+                      }}
+                    >
+                      Exclude
+                    </button>
+                  </div>
+                </article>
+              ))}
+              {browseLimit < matchingCourses.length && (
+                <button
+                  className="button secondary full"
+                  onClick={() => setBrowseLimit((n) => n + 16)}
+                >
+                  Show more courses
+                </button>
+              )}
             </div>
           </section>
         </div>
+      )}
+      {detailCourse && (
+        <CourseDetails
+          key={detailCourse}
+          course={detailCourse}
+          initialNames={[
+            ...new Set(
+              result?.plans.flatMap((p) =>
+                p.schedules.flatMap((w) =>
+                  w
+                    .filter((s) => s.course === detailCourse)
+                    .flatMap(instructorNames),
+                ),
+              ) ?? [],
+            ),
+          ]}
+          preferences={prefs}
+          currentSchedule={schedule}
+          pinned={prefs.pinned_sections[detailCourse]}
+          onPin={pinSection}
+          onClose={() => setDetailCourse(null)}
+        />
       )}
     </div>
   );
