@@ -5,7 +5,7 @@ import httpx
 from fastapi import APIRouter, FastAPI, HTTPException, Query
 from fastapi.staticfiles import StaticFiles
 
-from .data import get_catalog, get_planning_catalog, get_sections
+from .data import get_catalog, get_planning_catalog, get_sections, get_sections_many
 from .models import PlanRequest, PlanResult, ValidateRequest
 from .planner import generate
 from .rules import RULES
@@ -59,55 +59,23 @@ def load(request):
 @router.post("/plans/generate", response_model=PlanResult)
 def plan(request: PlanRequest):
     courses, warnings = load(request)
-    forbidden = []
-    output = None
-    for _ in range(4):
-        output = generate(
-            request.profile, request.preferences, courses, forbidden=forbidden, limit=3
+    published = [c.id for c in courses if request.preferences.start_term in c.terms]
+    options, section_warnings = get_sections_many(request.preferences.start_term, published)
+    output = generate(
+        request.profile, request.preferences, courses, section_options=options, limit=3
+    )
+    for candidate in output.plans:
+        first = next(
+            (s for s in candidate.semesters if s.term == request.preferences.start_term), None
         )
-        retry = False
-        for plan in output.plans:
-            first = next(
-                (s for s in plan.semesters if s.term == request.preferences.start_term),
-                None,
-            )
-            if first is None:
-                continue
-            options = {}
-            missing = False
-            for course in first.courses:
-                try:
-                    options[course], stale = get_sections(first.term, course)
-                    if stale:
-                        plan.conditions.append(
-                            f"{course}: section data is stale; availability must be refreshed."
-                        )
-                except (httpx.HTTPError, ValueError):
-                    missing = True
-            if missing:
-                plan.conditions.append(
-                    "Section data unavailable; the weekly schedule remains unverified."
-                )
-                continue
-            plan.schedules, notes = schedules(first.courses, options, request.preferences)
-            plan.conditions += notes
-            if not plan.schedules:
-                forbidden.append(first.courses)
-                retry = True
-        if not retry:
-            break
-    output.messages += warnings
-    if retry:
-        output.plans = [
-            p
-            for p in output.plans
-            if p.schedules or not any(s.term == request.preferences.start_term for s in p.semesters)
-        ]
-        if not output.plans:
-            output.status = "timeout"
-            output.messages.append(
-                "No compatible weekly schedule among the searched course combinations. Broaden availability or change pinned courses; other combinations may exist."
-            )
+        if first and candidate.schedules:
+            # The graduation solver already found a valid section assignment. Keep it
+            # even if the optional search for more weekly alternatives times out.
+            alternatives, notes = schedules(first.courses, options, request.preferences)
+            if alternatives:
+                candidate.schedules = alternatives
+            candidate.conditions = sorted(set(candidate.conditions + notes))
+    output.messages += list(dict.fromkeys(warnings + section_warnings))
     return output
 
 

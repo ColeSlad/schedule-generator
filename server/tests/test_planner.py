@@ -230,3 +230,75 @@ def test_transfer_concentration_credits_are_capped_at_six():
     p.attempts[-2].transfer = True
     p.attempts[-2].grade = "TA"
     assert generate(p, prefs, courses, limit=1).status == "infeasible"
+
+
+def integrated_options(courses):
+    return {c.id: [section(c.id, "0101", 480 + (i % 6) * 60)] for i, c in enumerate(courses)}
+
+
+def test_course_choice_accounts_for_sections_and_closed_courses():
+    p, prefs, courses = fixture()
+    options = integrated_options(courses)
+    options["CMSC411"][0].open_seats = 0
+    result = generate(p, prefs, courses, section_options=options, limit=1)
+    assert result.plans
+    first = result.plans[0].semesters[0]
+    assert first.term == prefs.start_term and "CMSC411" not in first.courses
+    assert result.plans[0].schedules
+    assert {s.course for s in result.plans[0].schedules[0]} == set(first.courses)
+
+
+def test_integrated_search_honors_blocked_times_and_section_pins():
+    p, prefs, courses = fixture()
+    options = integrated_options(courses)
+    prefs.pinned_sections = {"CMSC411": "0101", "CMSC420": "0101"}
+    options["CMSC420"][0].meetings = options["CMSC411"][0].meetings
+    result = generate(p, prefs, courses, section_options=options, limit=1)
+    assert result.status == "infeasible" and not result.plans
+    prefs.pinned_sections = {"CMSC411": "0101"}
+    prefs.blocked = options["CMSC411"][0].meetings
+    result = generate(p, prefs, courses, section_options=options, limit=1)
+    assert result.status == "infeasible"
+    assert any("CMSC411" in m and "blocked times" in m for m in result.messages)
+
+
+def test_unavailable_source_keeps_academic_plan_conditional():
+    p, prefs, courses = fixture()
+    options = integrated_options(courses)
+    prefs.pinned = {"CMSC411": prefs.start_term}
+    del options["CMSC411"]
+    result = generate(p, prefs, courses, section_options=options, limit=1)
+    assert result.plans and result.status == "conditional"
+    assert not result.plans[0].schedules
+    assert any("data unavailable" in c for c in result.plans[0].conditions)
+
+
+def test_unknown_short_horizon_does_not_prevent_finding_a_later_plan(monkeypatch):
+    from server.app.planner import cp_model
+
+    original = cp_model.CpSolver.solve
+    calls = 0
+
+    def first_probe_unknown(self, model, *args, **kwargs):
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            return cp_model.UNKNOWN
+        return original(self, model, *args, **kwargs)
+
+    monkeypatch.setattr(cp_model.CpSolver, "solve", first_probe_unknown)
+    profile, prefs, courses = fixture()
+    prefs.target_term = None
+    result = generate(profile, prefs, courses, limit=1)
+    assert result.plans and result.plans[0].semesters[-1].term == "202708"
+    assert any("not proven" in c for c in result.plans[0].conditions)
+
+
+def test_closed_pinned_section_is_explained_without_relaxing_the_pin():
+    profile, prefs, courses = fixture()
+    options = integrated_options(courses)
+    prefs.pinned_sections = {"CMSC411": "0101"}
+    options["CMSC411"][0].open_seats = 0
+    result = generate(profile, prefs, courses, section_options=options, limit=1)
+    assert result.status == "infeasible" and not result.plans
+    assert any("CMSC411" in m and "open seats" in m for m in result.messages)

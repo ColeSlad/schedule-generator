@@ -1,4 +1,5 @@
 import re
+from dataclasses import dataclass, field
 
 from ortools.sat.python import cp_model
 
@@ -14,40 +15,98 @@ def conflicts(a, b):
     )
 
 
+def matching_sections(course, sections, preferences):
+    """Apply only explicit seat, section-pin and availability constraints."""
+    if not sections:
+        return [], f"{course}: no published sections were returned."
+    pinned = preferences.pinned_sections.get(course)
+    if pinned:
+        sections = [s for s in sections if s.id == pinned]
+        if not sections:
+            return [], f"{course}: pinned section {pinned} is not published."
+    if not preferences.allow_full:
+        sections = [s for s in sections if s.open_seats is not None and s.open_seats > 0]
+        if not sections:
+            return [], f"{course}: no sections have confirmed open seats."
+    sections = [
+        s
+        for s in sections
+        if not any(conflicts(a, b) for a in s.meetings for b in preferences.blocked)
+    ]
+    if not sections:
+        return [], f"{course}: all eligible sections overlap your blocked times."
+    return sections, None
+
+
+@dataclass
+class SectionSelection:
+    options: dict = field(default_factory=dict)
+    variables: dict = field(default_factory=dict)
+    reasons: dict = field(default_factory=dict)
+
+    def selected(self, solver):
+        return [
+            self.options[c][i]
+            for (c, i), variable in self.variables.items()
+            if solver.value(variable)
+        ]
+
+
+def add_section_constraints(model, course_variables, sections, preferences):
+    """Use the same section constraints for course choice and weekly alternatives.
+
+    A missing key means source data is unavailable. An empty list is a known
+    absence of sections; those cases must not be treated as equivalent.
+    """
+    result = SectionSelection()
+    meetings = {}
+    for course, course_variable in course_variables.items():
+        if course not in sections:
+            continue
+        options, reason = matching_sections(course, sections[course], preferences)
+        result.options[course] = options
+        if reason:
+            result.reasons[course] = reason
+        for i, section in enumerate(options):
+            variable = model.new_bool_var(f"section:{course}:{section.id}")
+            result.variables[course, i] = variable
+            for meeting in section.meetings:
+                for day in set(re.findall(r"Tu|Th|Sa|Su|M|W|F", meeting.days)):
+                    meetings.setdefault(day, []).append((meeting.start, meeting.end, course, i))
+        model.add(sum(result.variables[course, i] for i in range(len(options))) == course_variable)
+
+    # Sweep each day instead of comparing every pair of sections in the catalog.
+    clashes = set()
+    for intervals in meetings.values():
+        active = []
+        for start, end, course, i in sorted(intervals):
+            active = [entry for entry in active if entry[0] > start]
+            for _, other, j in active:
+                if course != other:
+                    clashes.add(tuple(sorted(((course, i), (other, j)))))
+            active.append((end, course, i))
+    for first, second in clashes:
+        model.add(result.variables[first] + result.variables[second] <= 1)
+    return result
+
+
 def schedules(course_ids, sections, p, limit=3):
     """Each Testudo section includes its own linked lecture/discussion/lab meetings."""
+    missing = [course for course in course_ids if course not in sections]
+    if missing:
+        return [], [f"Section data is unavailable for {', '.join(missing)}."]
     model = cp_model.CpModel()
-    picks = {}
-    options = {}
-    notes = []
-    for course in course_ids:
-        options[course] = [
-            s
-            for s in sections.get(course, [])
-            if (p.allow_full or (s.open_seats is not None and s.open_seats > 0))
-            and not any(conflicts(a, b) for a in s.meetings for b in p.blocked)
-        ]
-        pinned = p.pinned_sections.get(course)
-        if pinned:
-            options[course] = [s for s in options[course] if s.id == pinned]
-        if not options[course]:
-            return [], [
-                f"{course}: no sections match seat, pinned-section, and availability constraints."
-            ]
-        for i, s in enumerate(options[course]):
-            picks[course, i] = model.new_bool_var(course + ":" + s.id)
-        model.add(sum(picks[course, i] for i in range(len(options[course]))) == 1)
-    keys = list(picks)
-    for index, (course, i) in enumerate(keys):
-        for other, j in keys[index + 1 :]:
-            if course != other and any(
-                conflicts(a, b)
-                for a in options[course][i].meetings
-                for b in options[other][j].meetings
-            ):
-                model.add(picks[course, i] + picks[other, j] <= 1)
-    model.minimize(sum((10000 if options[c][i].arranged else 0) * v for (c, i), v in picks.items()))
+    selection = add_section_constraints(model, dict.fromkeys(course_ids, 1), sections, p)
+    if selection.reasons:
+        return [], list(selection.reasons.values())
+    model.minimize(
+        sum(
+            (10000 if selection.options[c][i].arranged else 0) * variable
+            for (c, i), variable in selection.variables.items()
+        )
+    )
     results = []
+    notes = []
     for _ in range(limit):
         solver = cp_model.CpSolver()
         solver.parameters.max_time_in_seconds = 2
@@ -55,15 +114,15 @@ def schedules(course_ids, sections, p, limit=3):
         if status not in (cp_model.OPTIMAL, cp_model.FEASIBLE):
             if not results:
                 notes.append(
-                    "No compatible section combination found."
+                    "The eligible sections for these courses overlap each other."
                     if status == cp_model.INFEASIBLE
                     else "Section search timed out."
                 )
             break
-        selected = [(c, i) for c, i in keys if solver.value(picks[c, i])]
-        result = [options[c][i] for c, i in selected]
-        results.append(result)
-        if any(s.arranged for s in result):
+        selected = selection.selected(solver)
+        results.append(selected)
+        if any(s.arranged for s in selected):
             notes.append("Arranged/TBA meetings require manual conflict checks.")
-        model.add(sum(picks[k] for k in selected) <= len(selected) - 1)
-    return results, notes
+        picks = [variable for variable in selection.variables.values() if solver.value(variable)]
+        model.add(sum(picks) <= len(picks) - 1)
+    return results, list(dict.fromkeys(notes))

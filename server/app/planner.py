@@ -6,6 +6,7 @@ from ortools.sat.python import cp_model
 
 from .models import Plan, PlanResult, Semester
 from .rules import RULES, canonical, passed, supported
+from .scheduling import add_section_constraints
 
 
 def terms_from(p):
@@ -31,15 +32,18 @@ def terms_from(p):
     return terms
 
 
-def build_model(profile, p, courses, terms, forbidden=None, fixed=None):
+def build_model(
+    profile, p, courses, terms, forbidden=None, fixed=None, section_options=None, diagnostics=False
+):
     m = cp_model.CpModel()
     labels = {}
 
     def rule(constraint, label):
-        a = m.new_bool_var(label)
-        constraint.only_enforce_if(a)
-        m.add_assumption(a)
-        labels[a.index] = label
+        if diagnostics:
+            a = m.new_bool_var(label)
+            constraint.only_enforce_if(a)
+            m.add_assumption(a)
+            labels[a.index] = label
 
     available = {c.id: c for c in courses if c.id not in passed(profile) and c.id not in p.excluded}
     x = {(c, t): m.new_bool_var(f"{c}:{t}") for c in available for t in terms}
@@ -92,6 +96,25 @@ def build_model(profile, p, courses, terms, forbidden=None, fixed=None):
             m.add(load >= max(1, p.min_credits) * a),
             f"Minimum {p.min_credits} credits in active term {t}",
         )
+    selection = None
+    if section_options is not None:
+        selection = add_section_constraints(
+            m,
+            {c: x[c, p.start_term] for c in available if (c, p.start_term) in x},
+            section_options,
+            p,
+        )
+        # A plan that requires future courses must include the requested first semester.
+        if active:
+            rule(
+                m.add(sum(chosen.values()) <= len(chosen) * active[0]),
+                "The requested first semester must have a compatible course load",
+            )
+        for c, section_id in p.pinned_sections.items():
+            rule(
+                m.add(x[c, p.start_term] == 1) if (c, p.start_term) in x else m.add(False),
+                f"Pinned section {c} {section_id} must be in the first semester",
+            )
     all_ids = set(available) | done
     used = {c: chosen.get(c, 1) for c in all_ids}
     for c in RULES["required"]:
@@ -320,10 +343,10 @@ def build_model(profile, p, courses, terms, forbidden=None, fixed=None):
         extra * 1000 + sum((i + 1) * loads[i] for i in range(len(terms))) * 2 - interest * 10 + gaps
     )
     m.minimize((end * 10_000_000 if not p.target_term else 0) + secondary)
-    return m, x, available, allocations, gened_alloc, ulc, labels
+    return m, x, available, allocations, gened_alloc, ulc, labels, selection
 
 
-def generate(profile, p, courses, forbidden=None, fixed=None, limit=3):
+def generate(profile, p, courses, forbidden=None, fixed=None, limit=3, section_options=None):
     terms = terms_from(p)
     if not profile.reviewed or not supported(profile):
         return PlanResult(
@@ -346,7 +369,7 @@ def generate(profile, p, courses, forbidden=None, fixed=None, limit=3):
                 "Choose a start term after all imported in-progress courses, or update their status."
             ],
         )
-    if not terms:
+    if not terms or terms[0] != p.start_term:
         return PlanResult(
             status="needs_review",
             messages=["Choose an enabled start term and a target within the planning horizon."],
@@ -359,23 +382,33 @@ def generate(profile, p, courses, forbidden=None, fixed=None, limit=3):
     # Bound the search to the earliest feasible horizon before optimizing preferences.
     # If a shorter-horizon search times out, do not claim that a later term is earliest.
     shorter_unknown = False
+    hint = {}
     if not p.target_term and fixed is None:
         for n in range(1, len(terms) + 1):
-            trial, *_ = build_model(profile, p, courses, terms[:n], forbidden)
+            trial, *_ = build_model(
+                profile, p, courses, terms[:n], forbidden, section_options=section_options
+            )
+            trial.clear_objective()
             probe = cp_model.CpSolver()
             probe.parameters.max_time_in_seconds = 2
             probe.parameters.num_search_workers = 4
             trial_status = probe.solve(trial)
             if trial_status in (cp_model.OPTIMAL, cp_model.FEASIBLE):
                 terms = terms[:n]
+                hint = {
+                    v.name: probe.value(trial.get_int_var_from_proto_index(i))
+                    for i, v in enumerate(trial.proto.variables)
+                }
                 break
             if trial_status == cp_model.UNKNOWN:
                 shorter_unknown = True
-                # Avoid accumulating unbounded search time across twelve horizons.
-                break
-    m, x, available, allocations, geneds, ulc, labels = build_model(
-        profile, p, courses, terms, forbidden, fixed
+                # A timeout at a short horizon must not block searching later semesters.
+    m, x, available, allocations, geneds, ulc, _labels, selection = build_model(
+        profile, p, courses, terms, forbidden, fixed, section_options
     )
+    for i, variable in enumerate(m.proto.variables):
+        if variable.name in hint:
+            m.add_hint(m.get_int_var_from_proto_index(i), hint[variable.name])
     plans = []
     messages = []
     status = "timeout"
@@ -424,11 +457,24 @@ def generate(profile, p, courses, forbidden=None, fixed=None, limit=3):
             for (c, code), v in geneds.items():
                 if solver.value(v):
                     coverage.setdefault(code, []).append(c)
+            weekly = []
+            first = next((s for s in semesters if s.term == p.start_term), None)
+            if selection is not None and first:
+                if all(c in selection.options for c in first.courses):
+                    chosen_sections = selection.selected(solver)
+                    weekly = [chosen_sections]
+                    if any(s.arranged for s in chosen_sections):
+                        conditions.append("Arranged/TBA meetings require manual conflict checks.")
+                else:
+                    conditions.append(
+                        "Section data unavailable; the weekly schedule remains unverified."
+                    )
             plans.append(
                 Plan(
                     semesters=semesters,
                     coverage=coverage,
                     conditions=sorted(set(conditions)),
+                    schedules=weekly,
                 )
             )
             status = "conditional"
@@ -438,13 +484,33 @@ def generate(profile, p, courses, forbidden=None, fixed=None, limit=3):
             if not picks:
                 break
             m.add(sum(picks) <= len(picks) - 1)
+            m.clear_hints()
         elif result == cp_model.INFEASIBLE:
             if not plans:
                 status = "infeasible"
-                messages = [
-                    labels.get(i, "Academic constraints conflict")
-                    for i in solver.sufficient_assumptions_for_infeasibility()
-                ]
+                diagnostic, *_, diagnostic_labels, _ = build_model(
+                    profile, p, courses, terms, forbidden, fixed, section_options, diagnostics=True
+                )
+                diagnostic.clear_objective()
+                explanation = cp_model.CpSolver()
+                explanation.parameters.max_time_in_seconds = 2
+                explanation.parameters.num_search_workers = 1
+                if explanation.solve(diagnostic) == cp_model.INFEASIBLE:
+                    messages = [
+                        diagnostic_labels.get(i, "Academic constraints conflict")
+                        for i in explanation.sufficient_assumptions_for_infeasibility()
+                    ]
+                if selection is not None:
+                    pinned = set(p.pinned) | set(p.pinned_sections)
+                    reasons = sorted(
+                        selection.reasons.items(), key=lambda item: (item[0] not in pinned, item[0])
+                    )
+                    messages = [reason for c, reason in reasons if c in pinned] + messages
+                    if reasons:
+                        messages.append(
+                            "Courses without matching first-semester sections include: "
+                            + "; ".join(reason for _, reason in reasons[:3])
+                        )
                 messages.append(
                     "No plan within the loaded candidate courses and horizon. Expand offerings, adjust credit limits/target, or review restrictions and concentration choices."
                 )
