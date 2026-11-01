@@ -37,6 +37,8 @@ Open http://127.0.0.1:8011. The API serves `dist/` and supports the frontend's `
 - Gen Ed discovery, interests, course pins/exclusions, course moves with academic revalidation, and section pins.
 - Joint course-and-section search with linked lecture/lab/discussion meetings, blocked times, open-seat filters, and alternative weekly calendars.
 - IndexedDB saves, validated JSON backups including draft plans, printable views, and data deletion. Restored plans must be regenerated before use.
+- PlanetTerp professor ratings and review excerpts, course and instructor-specific historical GPAs, grade distributions, sample counts, and source links.
+- A schedule comparison table sortable by ratings, GPA, campus days, or gaps, plus course/section comparisons with pinning for regeneration.
 
 ## Pilot boundaries
 
@@ -74,4 +76,16 @@ npm run format:check
 
 GitHub Actions runs these checks on pushes and pull requests. Tests cover import/deduplication, plus/minus grades, credit mismatches, backup validation, deadlines, prerequisites, requirement overlap, concentration transfer limits, linked meetings, seat filters, day parsing, blocked times, catalog markup, and connected API behavior.
 
-See [implementation notes](docs/ARCHITECTURE.md) and [milestones](docs/MILESTONES.md). Expand program coverage only after validating more consented, redacted audits against manually reviewed outcomes. Instructor ratings and workload signals remain future additions.
+See [implementation notes](docs/ARCHITECTURE.md) and [milestones](docs/MILESTONES.md). Expand program coverage only after validating more consented, redacted audits against manually reviewed outcomes. Workload estimates remain a future addition; ratings and grade history are not treated as workload measurements.
+
+## Course and professor comparisons
+
+Click a course's **GPA** link or **Compare sections & reviews** to see grade history, current sections, professor ratings, a recent review excerpt, and links to the full PlanetTerp reviews. Pin an eligible section and regenerate to apply it. The weekly schedule page compares every generated plan/schedule option; comparisons reorder existing valid options and never change academic constraints.
+
+Public data comes from the [PlanetTerp API](https://docs.planetterp.com/). Only course identifiers and instructor names are sent to PlanetTerp. Lookups run separately from generation, serialize external requests with a pause, cache successful results for 24 hours and missing matches for one hour, and back off on rate limits/outages. Cached data remains available with a stale flag. Missing ratings and unavailable grade records stay null.
+
+Course GPA uses PlanetTerp's reported value. Instructor-specific course GPA reproduces [PlanetTerp's aggregation](https://github.com/planetterp/PlanetTerp/blob/master/home/models.py), including withdrawals at zero points and excluding Other. The comparison dialog also exposes a letter-grade-only GPA and the distribution/date range. Review counts, course-specific rating counts, and grade counts are separate. Exact normalized-name matching avoids guessing between different instructors.
+
+Insights load in small batches. Course browsing sorts the currently shown courses and can load more; it does not claim to rank an entire department before those data are loaded. Schedule averages show coverage and rank complete coverage before partial coverage. No GPA or rating is presented as a predicted personal grade or a measure of difficulty.
+
+[Course comparison preview](docs/insights-preview.jpg)

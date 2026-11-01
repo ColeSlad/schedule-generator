@@ -18,6 +18,14 @@
 
 A result of `infeasible` applies to the loaded candidate set, supported constraints, and horizon. A timeout is never presented as proof of infeasibility. All successful pilot results remain conditional because advisor-managed requirements and unpublished semesters remain unresolved.
 
+## Optional PlanetTerp enrichment
+
+`POST /insights` accepts `{courses, instructors}` with bounded public course codes and names; unknown fields are rejected. It returns historical grade summaries, professor scores/counts, short review excerpts, sources, timestamps, availability states, and staleness. This endpoint is independent of generation, so provider outages do not prevent academic planning.
+
+The frontend queues small enrichment batches after generation and when browsing courses. A source adapter serializes/rate-limits HTTP cache misses, caches public JSON in a separate SQLite table, and reuses stale data on failure. Professor names are preserved separately when Testudo supplies multiple instructors. Historical professor-course grade rows are matched only by normalized exact names. Reviews are shown as bounded excerpts with links, never synthesized into workload claims.
+
+Schedule comparison metrics derive days/gaps from all section meetings and show the number of courses/instructors represented in each average. Course browsing is paginated to bound provider requests. A native dialog provides keyboard dismissal and section pinning; applying a pin still requires regeneration through the existing academic/section constraints. Ratings are intentionally not added to hard solver constraints.
+
 ## Adding coverage
 
 Add a new catalog-year/program rule pack rather than rewriting older requirements. Update program selection and importer recognition, test manually reviewed audits, and add meaningful rule-allocation regressions. Major/minor overlap requires explicit allocation rules before being supported. Do not infer official approval from matching course numbers.
