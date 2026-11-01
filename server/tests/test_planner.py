@@ -1,3 +1,5 @@
+import pytest
+
 from server.app.models import Attempt, Course, Meeting, Preferences, Profile, Section
 from server.app.planner import generate
 from server.app.scheduling import schedules
@@ -186,6 +188,39 @@ def test_independent_research_does_not_automatically_satisfy_concentration():
     courses[-1].title = "Independent Research"
     courses[-2].title = "Independent Research"
     assert generate(p, prefs, courses, limit=1).status == "infeasible"
+
+
+@pytest.mark.parametrize(
+    ("prefix", "excluded"),
+    [("PSYC", "PSYC417"), ("BMGT", "BMGT402"), ("PHIL", "PHIL308F"), ("ENES", "ENES396")],
+)
+def test_expanded_concentrations_do_not_count_ineligible_courses(prefix, excluded):
+    profile, prefs, courses = fixture()
+    prefs.concentration = prefix
+    courses = (
+        [c for c in courses if not c.id.startswith("HIST")]
+        + [course(f"{prefix}{n}") for n in [310, 311, 312]]
+        + [course(excluded)]
+    )
+    assert generate(profile, prefs, courses, limit=1).status == "infeasible"
+
+    courses.append(course(f"{prefix}313"))
+    result = generate(profile, prefs, courses, limit=1)
+    assert result.plans
+    assert set(result.plans[0].coverage["Concentration"]) == {
+        f"{prefix}{n}" for n in [310, 311, 312, 313]
+    }
+
+
+def test_letter_suffixed_upper_level_courses_count_toward_new_concentrations():
+    profile, prefs, courses = fixture()
+    prefs.concentration = "GVPT"
+    courses = [c for c in courses if not c.id.startswith("HIST")] + [
+        course(c) for c in ["GVPT300", "GVPT301", "GVPT302", "GVPT309A"]
+    ]
+    result = generate(profile, prefs, courses, limit=1)
+    assert result.plans
+    assert "GVPT309A" in result.plans[0].coverage["Concentration"]
 
 
 def test_progress_must_precede_planned_semesters():

@@ -186,9 +186,10 @@ def build_model(
     course_metadata = {c.id: c for c in courses}
     experiential = set()
     for c in all_ids:
-        if not c.startswith(p.concentration) or not c[len(p.concentration) :].isdigit():
+        match = re.fullmatch(r"([A-Z]{3,4})(\d{3})[A-Z]?", c)
+        if not match or match[1] != p.concentration:
             continue
-        if not 300 <= int(c[len(p.concentration) :]) < 500:
+        if not 300 <= int(match[2]) < 500 or c in RULES["concentration_excluded_courses"]:
             continue
         co = course_metadata.get(c)
         if co and (
