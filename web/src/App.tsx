@@ -1113,8 +1113,8 @@ function Workspace() {
                             <section className="card semester" key={s.term}>
                               <div className="card-heading">
                                 <h3>{termLabel(s.term)}</h3>
-                                <span className="tag">
-                                  {s.credits} credits
+                                <span className="tag semester-credits">
+                                  <strong>{s.credits}</strong> credits
                                   {s.term === prefs.start_term
                                     ? ""
                                     : " · Estimated"}

@@ -745,6 +745,16 @@ td:nth-child(4) input {
   align-items: center;
   gap: 12px;
 }
+.semester .semester-credits {
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: 0;
+}
+.semester-credits strong {
+  font-size: 22px;
+  font-weight: 600;
+  line-height: 1.1;
+}
 .planned-course {
   display: flex;
   align-items: center;
