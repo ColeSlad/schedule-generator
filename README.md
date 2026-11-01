@@ -34,6 +34,7 @@ Open http://127.0.0.1:8011. The API serves `dist/` and supports the frontend's `
 
 - Browser PDF extraction, deduplicated course attempts, transfer/AP and in-progress credits, credit reconciliation, and editable import review.
 - CS area/elective allocation, prerequisite sequencing, concentration overlap/exclusions, residency/credit minimums, graduation targets, and semester credit limits.
+- **Graduate in** uses the selected semester as the final enrolled term, with fall/spring enrollment through that date. Credit minimums can add courses to fill the timeline. **Earliest available** finds the earliest feasible finish. An explicitly selected summer/winter start or graduation term is included; other summer/winter terms remain optional.
 - Optional online/async preference for published first-semester courses and sections. Async sections rank ahead of other online sections, then blended sections, while graduation timing, credit totals, seat rules, pins, and conflicts retain priority.
 - Gen Ed discovery, interests, course pins/exclusions, course moves with academic revalidation, and section pins.
 - Joint course-and-section search with linked lecture/lab/discussion meetings, blocked times, open-seat filters, and alternative weekly calendars.
@@ -77,7 +78,7 @@ npm run format:check
 .venv/bin/ruff format --check server
 ```
 
-GitHub Actions runs these checks on pushes and pull requests. Tests cover import/deduplication, plus/minus grades, credit mismatches, backup validation, deadlines, prerequisites, requirement overlap, concentration transfer limits, linked meetings, seat filters, day parsing, blocked times, catalog markup, and connected API behavior.
+GitHub Actions runs these checks on pushes and pull requests. Tests cover import/deduplication, plus/minus grades, credit mismatches, backup validation, exact graduation semesters, prerequisites, requirement overlap, concentration transfer limits, linked meetings, seat filters, day parsing, blocked times, catalog markup, and connected API behavior.
 
 See [implementation notes](docs/ARCHITECTURE.md) and [milestones](docs/MILESTONES.md). Expand program coverage only after validating more consented, redacted audits against manually reviewed outcomes. Workload estimates remain a future addition; ratings and grade history are not treated as workload measurements.
 

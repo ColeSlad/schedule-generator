@@ -904,7 +904,7 @@ function Workspace() {
                     </select>
                   </label>
                   <label>
-                    Graduate by
+                    Graduate in
                     <select
                       value={prefs.target_term ?? ""}
                       onChange={(e) =>
