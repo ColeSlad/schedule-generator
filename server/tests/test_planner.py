@@ -501,3 +501,91 @@ def test_online_preference_does_not_add_unneeded_courses_or_delay_graduation():
     assert plan.semesters[-1].term == "202708"
     assert sum(s.credits for s in plan.semesters) == 33
     assert all("ENGL300" not in s.courses for s in plan.semesters)
+
+
+def mixed_workload_fixture(prefer_online=True):
+    profile, prefs, courses = business_fixture(["BMIN345", "BMIN355", "BMIN375", "BMIN395"])
+    prefs.target_term = "202801"
+    prefs.min_credits = 12
+    prefs.max_credits = 15
+    prefs.prefer_online = prefer_online
+    courses += [course(f"BMGT298{suffix}", credits=1) for suffix in ["J", "K", "M"]]
+    courses.append(course("ENGL398C"))
+    options = {}
+    for i, co in enumerate(courses):
+        s = section(co.id, "0101", 480 + i * 50)
+        if co.id.startswith(("BMIN", "BMGT")):
+            s.delivery = "online"
+            s.asynchronous = True
+            s.meetings = []
+        options[co.id] = [s]
+    return profile, prefs, courses, options
+
+
+@pytest.mark.parametrize("prefer_online", [False, True])
+def test_balances_cs_across_semesters_before_online_preference(prefer_online):
+    profile, prefs, courses, options = mixed_workload_fixture(prefer_online)
+    result = generate(profile, prefs, courses, section_options=options, limit=3)
+    assert result.plans
+    for plan in result.plans:
+        cs_counts = [sum(c.startswith("CMSC") for c in s.courses) for s in plan.semesters]
+        assert sorted(cs_counts) == [2, 2, 3]
+        assert [s.credits for s in plan.semesters] == [12, 12, 12]
+        assert plan.semesters[-1].term == "202801"
+        assert all(len(s.courses) == 4 for s in plan.semesters)
+        assert all(not c.startswith("BMGT298") for s in plan.semesters for c in s.courses)
+
+
+def test_balancing_evenly_spreads_credit_loads_without_adding_courses():
+    profile, prefs, courses = fixture()
+    prefs.max_credits = 24
+    result = generate(profile, prefs, courses, limit=1)
+    assert result.plans
+    assert sorted(s.credits for s in result.plans[0].semesters) == [15, 18]
+    assert sum(s.credits for s in result.plans[0].semesters) == 33
+
+
+def test_balance_remains_a_preference_when_course_pins_force_a_heavier_semester():
+    profile, prefs, courses, options = mixed_workload_fixture()
+    pinned = ["CMSC411", "CMSC420", "CMSC421", "CMSC430"]
+    prefs.pinned = dict.fromkeys(pinned, "202708")
+    result = generate(profile, prefs, courses, section_options=options, limit=1)
+    assert result.plans
+    autumn = next(s for s in result.plans[0].semesters if s.term == "202708")
+    assert set(pinned) <= set(autumn.courses)
+
+
+def test_balance_respects_unavailable_first_semester_cs_sections():
+    profile, prefs, courses, options = mixed_workload_fixture()
+    for code, sections in options.items():
+        if code.startswith("CMSC"):
+            sections[0].open_seats = 0
+    result = generate(profile, prefs, courses, section_options=options, limit=1)
+    assert result.plans
+    first = result.plans[0].semesters[0]
+    assert not any(c.startswith("CMSC") for c in first.courses)
+    assert first.term == "202701"
+
+
+def test_balance_does_not_pad_lighter_terms_with_unneeded_technical_courses():
+    profile, prefs, courses, options = mixed_workload_fixture()
+    prefs.target_term = "202901"
+    for i, code in enumerate([*(f"ENGL{n}" for n in range(300, 308)), "CMSC498N", "CMSC498E"]):
+        courses.append(course(code))
+        s = section(code, "0101", 480 + i * 50)
+        s.delivery = "online"
+        s.asynchronous = True
+        s.meetings = []
+        options[code] = [s]
+    result = generate(profile, prefs, courses, section_options=options, limit=1)
+    assert result.plans
+    plan = result.plans[0]
+    assert all(c not in {"CMSC498N", "CMSC498E"} for s in plan.semesters for c in s.courses)
+    assert sorted(sum(c.startswith("CMSC") for c in s.courses) for s in plan.semesters) == [
+        1,
+        1,
+        1,
+        2,
+        2,
+    ]
+    assert sum(s.credits for s in plan.semesters) == 60

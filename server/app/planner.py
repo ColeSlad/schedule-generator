@@ -4,6 +4,7 @@ import re
 
 from ortools.sat.python import cp_model
 
+from .balance import semester_balance
 from .models import Plan, PlanResult, Semester
 from .rules import RULES, canonical, concentration_course, passed, supported
 from .scheduling import add_section_constraints
@@ -349,23 +350,24 @@ def build_model(
         if any(s.lower() in (co.title + " " + c).lower() for s in p.interests)
     )
     gaps = sum(active)
-    # Bounded lower-priority terms make objectives lexicographic for this candidate set.
+    # Balance course mix and credit loads before considering delivery format.
+    balance, balance_bound = (
+        (0, 0) if diagnostics else semester_balance(m, x, available, terms, active, p)
+    )
     lower = sum((i + 1) * loads[i] for i in range(len(terms))) * 2 - interest * 10 + gaps
-    credit_weight = 1000
-    finish_weight = 10_000_000
+    lower_span = p.max_credits * len(terms) * (len(terms) + 1) + 10 * len(available) + len(terms)
+    format_weight = lower_span + 1
+    format_bound = 0
     format_bonus = 0
     if p.prefer_online and selection is not None:
-        # Earliest graduation, then total credits, then confirmed online/async
-        # sections, then existing timing/interest preferences. Bound each tier
-        # so extra courses or a later graduation cannot buy a format bonus.
-        lower_span = (
-            p.max_credits * len(terms) * (len(terms) + 1) + 10 * len(available) + len(terms)
-        )
-        format_weight = lower_span + 1
-        credit_weight = (3 * len(selection.options) + 1) * format_weight
-        finish_weight = (len(terms) * p.max_credits + 1) * credit_weight
+        format_bound = 3 * len(selection.options)
         format_bonus = selection.delivery_score() * format_weight
-    secondary = extra * credit_weight - format_bonus + lower
+    # Each tier outweighs the entire range below it. Balance cannot add credits
+    # or delay earliest graduation; online preference cannot buy an imbalance.
+    balance_weight = (format_bound + 1) * format_weight
+    credit_weight = (balance_bound + 1) * balance_weight
+    finish_weight = (len(terms) * p.max_credits + 1) * credit_weight
+    secondary = extra * credit_weight + balance * balance_weight - format_bonus + lower
     m.minimize((end * finish_weight if not p.target_term else 0) + secondary)
     return m, x, available, allocations, gened_alloc, ulc, labels, selection
 
