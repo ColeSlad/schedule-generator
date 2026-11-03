@@ -11,7 +11,7 @@
 ## Validation completed
 
 - One supplied 10-page audit: completed/in-progress totals and remaining Gen Ed counts reconcile.
-- 61 backend tests and 15 frontend tests pass; production build and formatting/lint checks pass.
+- 67 backend tests and 15 frontend tests pass; production build and formatting/lint checks pass.
 - Live generation with the supplied audit returns three conditional plans with compatible weekly schedules in approximately eight seconds with warm public-data caches.
 - Browser review: overview, synthetic-audit review, generation, weekly calendars, schedule sorting, course browsing, grade/review dialogs, keyboard dismissal, and section pinning.
 

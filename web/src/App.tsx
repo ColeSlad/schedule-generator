@@ -977,7 +977,7 @@ function Workspace() {
                   </label>
                   <label
                     className="check-label"
-                    title="Favor published async and online sections when choosing courses and schedules."
+                    title="Favor online and async sections after balancing semester workloads."
                   >
                     <input
                       type="checkbox"
